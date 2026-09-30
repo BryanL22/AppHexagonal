@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<HBox alignment="TOP_CENTER"
+      spacing="20.0"
+      xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="co.edu.poli.sw2.infrastructure.in.ui.MainController">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <VBox alignment="CENTER" spacing="15.0">
+
+        <Label text="Gestor de Drones"
+               styleClass="titulo"/>
+
+        <GridPane hgap="10" vgap="10" alignment="CENTER">
+            <columnConstraints>
+                <ColumnConstraints minWidth="100"/>
+                <ColumnConstraints minWidth="220"/>
+            </columnConstraints>
+
+            <Label text="ID:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtId" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+            <Label text="Serial:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtSerial" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+            <Label text="Modelo:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtModelo" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+            <Label text="Fabricante:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtFabricante" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+            <Label text="Peso (kg):" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtPeso" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+            <Label text="Tipo:" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cbTipo" promptText="Selecciona un tipo" prefWidth="220"
+                      GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                      GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+
+            <Label fx:id="lblCapacidadTanque" text="Capacidad tanque (L):"
+                   GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtCapacidadTanque" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+            <Label fx:id="lblDeteccionTermica" text="Deteccion termica:"
+                   GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+            <CheckBox fx:id="chkDeteccionTermica" text="Si"
+                      GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+        </GridPane>
+
+        <HBox alignment="CENTER" spacing="10">
+            <Button fx:id="btnCrear" text="Crear" prefWidth="150" styleClass="crud-button" onAction="#onCrear"/>
+            <Button fx:id="btnConsultarTodos" text="Consultar todos" prefWidth="150" styleClass="crud-button" onAction="#onConsultarTodos"/>
+        </HBox>
+
+        <HBox alignment="CENTER" spacing="10">
+            <Button text="Consultar por ID" prefWidth="150" styleClass="crud-button" onAction="#onConsultarPorId"/>
+            <Button text="Actualizar" prefWidth="150" styleClass="crud-button" onAction="#onActualizar"/>
+            <Button text="Eliminar" prefWidth="150" styleClass="crud-button" onAction="#onEliminar"/>
+        </HBox>
+
+        <TableView fx:id="tablaDrones" prefHeight="220" prefWidth="850">
+            <columns>
+                <TableColumn fx:id="colId" text="ID" prefWidth="60"/>
+                <TableColumn fx:id="colSerial" text="Serial" prefWidth="105"/>
+                <TableColumn fx:id="colModelo" text="Modelo" prefWidth="95"/>
+                <TableColumn fx:id="colFabricante" text="Fabricante" prefWidth="105"/>
+                <TableColumn fx:id="colPeso" text="Peso (kg)" prefWidth="70"/>
+                <TableColumn fx:id="colCapacidadTanque" text="Capacidad tanque (L)" prefWidth="150"/>
+                <TableColumn fx:id="colDeteccionTermica" text="Deteccion termica" prefWidth="130"/>
+            </columns>
+        </TableView>
+
+    </VBox>
+
+</HBox>
