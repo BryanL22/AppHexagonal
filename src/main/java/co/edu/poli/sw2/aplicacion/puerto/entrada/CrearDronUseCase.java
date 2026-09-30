@@ -1,4 +1,4 @@
-package co.edu.poli.sw2.dominio.puerto.entrada;
+package co.edu.poli.sw2.aplicacion.puerto.entrada;
 
 import co.edu.poli.sw2.dominio.modelo.Drone;
 
@@ -10,10 +10,12 @@ import co.edu.poli.sw2.dominio.modelo.Drone;
 public interface CrearDronUseCase {
 
     /**
-     * Registra un dron nuevo. Falla si su identificador ya esta ocupado.
+     * Registra un dron nuevo, siempre que sea valido y su identificador no
+     * este ocupado.
      *
-     * @param drone dron sobre el que se opera.
-     * @return {@code true} si la operacion tuvo efecto.
+     * @param drone dron a registrar.
+     * @return {@code true} si se guardo; {@code false} si el identificador ya existia.
+     * @throws IllegalArgumentException si el dron no cumple las reglas de negocio.
      */
     boolean crear(Drone drone);
 }

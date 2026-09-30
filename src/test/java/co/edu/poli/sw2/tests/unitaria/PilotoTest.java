@@ -1,12 +1,18 @@
-package co.edu.poli.sw2.dominio.modelo;
+package co.edu.poli.sw2.tests.unitaria;
+
+import co.edu.poli.sw2.dominio.modelo.Piloto;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Pruebas unitarias de {@link Piloto}.
+ */
 class PilotoTest {
 
+    /** Verifica que el constructor con datos asigna todos los campos. */
     @Test
     void constructorConDatosAsignaTodosLosCampos() {
         Piloto piloto = new Piloto("P1", "Juan Perez", "LIC-001", "3000000000");
@@ -17,6 +23,7 @@ class PilotoTest {
         assertEquals("3000000000", piloto.getTelefono());
     }
 
+    /** Verifica que todas las propiedades se pueden cambiar con sus setters. */
     @Test
     void lasPropiedadesSonModificablesMedianteSetters() {
         Piloto piloto = new Piloto();
@@ -32,6 +39,7 @@ class PilotoTest {
         assertEquals("3000000001", piloto.getTelefono());
     }
 
+    /** Verifica que {@code toString} incluye el nombre del piloto. */
     @Test
     void toStringIncluyeElNombre() {
         Piloto piloto = new Piloto("P1", "Juan Perez", "LIC-001", "3000000000");

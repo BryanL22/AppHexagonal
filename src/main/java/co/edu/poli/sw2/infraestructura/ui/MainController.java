@@ -3,12 +3,12 @@ package co.edu.poli.sw2.infraestructura.ui;
 import co.edu.poli.sw2.dominio.modelo.Agricultura;
 import co.edu.poli.sw2.dominio.modelo.Drone;
 import co.edu.poli.sw2.dominio.modelo.Vigilancia;
-import co.edu.poli.sw2.dominio.puerto.entrada.ActualizarDronUseCase;
-import co.edu.poli.sw2.dominio.puerto.entrada.ConsultarDronUseCase;
-import co.edu.poli.sw2.dominio.puerto.entrada.ConsultarDronesUseCase;
-import co.edu.poli.sw2.dominio.puerto.entrada.CrearDronUseCase;
-import co.edu.poli.sw2.dominio.puerto.entrada.EliminarDronUseCase;
-import co.edu.poli.sw2.dominio.puerto.salida.PersistenciaException;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ActualizarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -29,9 +29,13 @@ import javafx.scene.control.cell.PropertyValueFactory;
  * Adaptador de entrada (driving adapter): la interfaz JavaFX.
  *
  * <p>Su unica responsabilidad es leer y escribir los controles de la vista y
- * traducir las acciones del usuario en llamadas al puerto de entrada
- * los casos de uso. No conoce la base de datos, ni el DAO, ni
- * JDBC: para el, al otro lado solo hay casos de uso.</p>
+ * traducir las acciones del usuario en llamadas a los puertos de entrada
+ * (los casos de uso). No conoce la base de datos, ni el DAO, ni JDBC: para
+ * el, al otro lado solo hay casos de uso.</p>
+ *
+ * <p>No tiene constructor vacio, asi que {@code App} lo crea con
+ * {@code FXMLLoader.setControllerFactory}. Los metodos {@code on...} estan
+ * enlazados a los botones desde {@code GestorDrones.fxml}.</p>
  *
  * <p>Los casos de uso llegan por constructor, no se instancian aqui. Eso permite
  * cambiar la implementacion sin tocar la vista y mantiene la dependencia
@@ -45,49 +49,73 @@ public class MainController {
     /** Tipo de dron especializado en vigilancia. */
     public static final String TIPO_VIGILANCIA = "Vigilancia";
 
+    /** Campo del identificador del dron. */
     @FXML
     private TextField txtId;
+    /** Campo del numero de serie. */
     @FXML
     private TextField txtSerial;
+    /** Campo del modelo. */
     @FXML
     private TextField txtModelo;
+    /** Campo del fabricante. */
     @FXML
     private TextField txtFabricante;
+    /** Campo del peso en kilogramos. */
     @FXML
     private TextField txtPeso;
+    /** Selector del tipo de dron (agricultura o vigilancia). */
     @FXML
     private ComboBox<String> cbTipo;
+    /** Etiqueta del campo de capacidad del tanque; solo visible para agricultura. */
     @FXML
     private Label lblCapacidadTanque;
+    /** Campo de la capacidad del tanque en litros; solo visible para agricultura. */
     @FXML
     private TextField txtCapacidadTanque;
+    /** Etiqueta de la deteccion termica; solo visible para vigilancia. */
     @FXML
     private Label lblDeteccionTermica;
+    /** Casilla de deteccion termica; solo visible para vigilancia. */
     @FXML
     private CheckBox chkDeteccionTermica;
 
+    /** Tabla con los drones consultados. */
     @FXML
     private TableView<Drone> tablaDrones;
+    /** Columna del identificador. */
     @FXML
     private TableColumn<Drone, String> colId;
+    /** Columna del numero de serie. */
     @FXML
     private TableColumn<Drone, String> colSerial;
+    /** Columna del modelo. */
     @FXML
     private TableColumn<Drone, String> colModelo;
+    /** Columna del fabricante. */
     @FXML
     private TableColumn<Drone, String> colFabricante;
+    /** Columna del peso. */
     @FXML
     private TableColumn<Drone, Double> colPeso;
+    /** Columna de la capacidad del tanque; vacia si el dron no es de agricultura. */
     @FXML
     private TableColumn<Drone, String> colCapacidadTanque;
+    /** Columna de la deteccion termica; vacia si el dron no es de vigilancia. */
     @FXML
     private TableColumn<Drone, String> colDeteccionTermica;
 
+    /** Caso de uso para registrar drones. */
     private final CrearDronUseCase crearDron;
+    /** Caso de uso para consultar un dron por identificador. */
     private final ConsultarDronUseCase consultarDron;
+    /** Caso de uso para listar todos los drones. */
     private final ConsultarDronesUseCase consultarDrones;
+    /** Caso de uso para actualizar drones. */
     private final ActualizarDronUseCase actualizarDron;
+    /** Caso de uso para eliminar drones. */
     private final EliminarDronUseCase eliminarDron;
+    /** Lista observable enlazada a {@link #tablaDrones}. */
     private final ObservableList<Drone> drones = FXCollections.observableArrayList();
 
     /**
@@ -109,6 +137,11 @@ public class MainController {
         this.eliminarDron = eliminarDron;
     }
 
+    /**
+     * Lo invoca JavaFX despues de inyectar los controles. Configura las
+     * columnas de la tabla, el selector de tipo y la seleccion de filas, y
+     * carga los drones existentes.
+     */
     @FXML
     private void initialize() {
         colId.setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -135,6 +168,12 @@ public class MainController {
         cargarDrones();
     }
 
+    /**
+     * Boton "Crear": registra el dron del formulario. Avisa si el
+     * identificador ya esta en uso.
+     *
+     * @param event evento del boton (no se usa).
+     */
     @FXML
     private void onCrear(ActionEvent event) {
         Drone drone = leerFormulario();
@@ -150,16 +189,29 @@ public class MainController {
                 mostrarAlerta(AlertType.WARNING,
                         "Ya existe un drone con el ID '" + drone.getId() + "'. Elige otro.");
             }
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }
     }
 
+    /**
+     * Boton "Consultar todos": recarga la tabla con todos los drones.
+     *
+     * @param event evento del boton (no se usa).
+     */
     @FXML
     private void onConsultarTodos(ActionEvent event) {
         cargarDrones();
     }
 
+    /**
+     * Boton "Consultar por ID": muestra solo el dron con el identificador
+     * escrito y llena el formulario con sus datos.
+     *
+     * @param event evento del boton (no se usa).
+     */
     @FXML
     private void onConsultarPorId(ActionEvent event) {
         String id = parsearId();
@@ -176,11 +228,19 @@ public class MainController {
 
             drones.setAll(drone);
             llenarFormulario(drone);
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }
     }
 
+    /**
+     * Boton "Actualizar": guarda los cambios del formulario sobre el dron
+     * con ese identificador.
+     *
+     * @param event evento del boton (no se usa).
+     */
     @FXML
     private void onActualizar(ActionEvent event) {
         Drone drone = leerFormulario();
@@ -196,11 +256,18 @@ public class MainController {
                 mostrarAlerta(AlertType.ERROR,
                         "No se pudo actualizar. Verifica que el ID exista y que el tipo coincida con el registrado.");
             }
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }
     }
 
+    /**
+     * Boton "Eliminar": borra el dron con el identificador escrito.
+     *
+     * @param event evento del boton (no se usa).
+     */
     @FXML
     private void onEliminar(ActionEvent event) {
         String id = parsearId();
@@ -215,6 +282,8 @@ public class MainController {
             } else {
                 mostrarAlerta(AlertType.ERROR, "No se pudo eliminar el drone. Verifica que el ID exista.");
             }
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }
@@ -260,6 +329,10 @@ public class MainController {
         return new Vigilancia(id.trim(), serial, modelo, fabricante, peso, chkDeteccionTermica.isSelected());
     }
 
+    /**
+     * Consulta todos los drones y los muestra en la tabla. Si falla la
+     * persistencia, muestra el error en un dialogo.
+     */
     private void cargarDrones() {
         try {
             drones.setAll(consultarDrones.consultarTodos());
@@ -269,8 +342,10 @@ public class MainController {
     }
 
     /**
-     * Capacidad del tanque para mostrar en la tabla; vacio si el dron no es
-     * de agricultura.
+     * Texto de la columna de capacidad del tanque.
+     *
+     * @param drone dron de la fila.
+     * @return la capacidad en litros, o vacio si el dron no es de agricultura.
      */
     private String capacidadTanqueDe(Drone drone) {
         if (drone instanceof Agricultura agricultura) {
@@ -281,8 +356,10 @@ public class MainController {
     }
 
     /**
-     * Deteccion termica para mostrar en la tabla; vacio si el dron no es de
-     * vigilancia.
+     * Texto de la columna de deteccion termica.
+     *
+     * @param drone dron de la fila.
+     * @return "Si" o "No", o vacio si el dron no es de vigilancia.
      */
     private String deteccionTermicaDe(Drone drone) {
         if (drone instanceof Vigilancia vigilancia) {
@@ -293,7 +370,10 @@ public class MainController {
     }
 
     /**
-     * Muestra unicamente el campo propio de la especializacion elegida.
+     * Muestra unicamente el campo propio de la especializacion elegida y
+     * oculta el otro (sin reservarle espacio).
+     *
+     * @param tipo tipo elegido en {@link #cbTipo}, o {@code null} para ocultar ambos.
      */
     private void mostrarCamposDeTipo(String tipo) {
         boolean esAgricultura = TIPO_AGRICULTURA.equals(tipo);
@@ -310,6 +390,11 @@ public class MainController {
         chkDeteccionTermica.setManaged(esVigilancia);
     }
 
+    /**
+     * Copia los datos de un dron en los campos del formulario.
+     *
+     * @param drone dron a mostrar.
+     */
     private void llenarFormulario(Drone drone) {
         txtId.setText(drone.getId());
         txtSerial.setText(drone.getSerial());
@@ -328,6 +413,9 @@ public class MainController {
         }
     }
 
+    /**
+     * Deja todos los campos del formulario vacios.
+     */
     private void limpiarFormulario() {
         txtId.clear();
         txtSerial.clear();
@@ -339,10 +427,21 @@ public class MainController {
         cbTipo.setValue(null);
     }
 
+    /**
+     * Indica si un texto no tiene contenido.
+     *
+     * @param texto texto a revisar; puede ser {@code null}.
+     * @return {@code true} si es {@code null} o solo tiene espacios.
+     */
     private boolean esVacio(String texto) {
         return texto == null || texto.isBlank();
     }
 
+    /**
+     * Lee el identificador del formulario. Si esta vacio, avisa al usuario.
+     *
+     * @return el identificador sin espacios en los extremos, o {@code null} si falta.
+     */
     private String parsearId() {
         String idTexto = txtId.getText();
         if (esVacio(idTexto)) {
@@ -353,6 +452,12 @@ public class MainController {
         return idTexto.trim();
     }
 
+    /**
+     * Convierte el peso escrito a numero. Si no es valido, avisa al usuario.
+     *
+     * @param pesoTexto texto del campo de peso.
+     * @return el peso en kilogramos, o {@code null} si no es numerico.
+     */
     private Double parsearPeso(String pesoTexto) {
         try {
             return Double.parseDouble(pesoTexto.trim());
@@ -362,6 +467,12 @@ public class MainController {
         }
     }
 
+    /**
+     * Lee y convierte la capacidad del tanque. Si falta o no es valida,
+     * avisa al usuario.
+     *
+     * @return la capacidad en litros, o {@code null} si falta o no es numerica.
+     */
     private Double parsearCapacidadTanque() {
         String texto = txtCapacidadTanque.getText();
         if (esVacio(texto)) {
@@ -377,6 +488,12 @@ public class MainController {
         }
     }
 
+    /**
+     * Muestra un dialogo modal y espera a que el usuario lo cierre.
+     *
+     * @param tipo tipo de alerta (error, advertencia o informacion).
+     * @param mensaje texto a mostrar.
+     */
     private void mostrarAlerta(AlertType tipo, String mensaje) {
         new Alert(tipo, mensaje).showAndWait();
     }

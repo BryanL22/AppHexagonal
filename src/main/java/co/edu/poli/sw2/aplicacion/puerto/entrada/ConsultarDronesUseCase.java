@@ -1,4 +1,4 @@
-package co.edu.poli.sw2.dominio.puerto.entrada;
+package co.edu.poli.sw2.aplicacion.puerto.entrada;
 
 import co.edu.poli.sw2.dominio.modelo.Drone;
 

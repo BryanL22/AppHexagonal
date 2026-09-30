@@ -5,6 +5,7 @@ package co.edu.poli.sw2.dominio.modelo;
  */
 public class Agricultura extends Drone {
 
+    /** Capacidad del tanque de insumos en litros. */
     private double capacidadTanque;
 
     /**
@@ -49,7 +50,21 @@ public class Agricultura extends Drone {
     }
 
     /**
-     * Crea una copia de este dron de agricultura (patron Prototype), incluyendo
+     * Verifica las reglas comunes de un dron y, ademas, que la capacidad
+     * del tanque sea mayor que 0.
+     *
+     * @throws IllegalArgumentException si alguna regla no se cumple.
+     */
+    @Override
+    public void validar() {
+        super.validar();
+        if (capacidadTanque <= 0) {
+            throw new IllegalArgumentException("La capacidad del tanque debe ser mayor que 0.");
+        }
+    }
+
+    /**
+     * Crea una copia de este dron de agricultura, incluyendo
      * su capacidad de tanque. El objeto devuelto tiene una identidad (referencia
      * de memoria) distinta a la de {@code this}.
      *
@@ -60,6 +75,11 @@ public class Agricultura extends Drone {
         return (Agricultura) super.clone();
     }
 
+    /**
+     * Devuelve una representacion en texto con todos los datos, util para depuracion.
+     *
+     * @return los atributos de este objeto en formato legible.
+     */
     @Override
     public String toString() {
         return "Agricultura{" +

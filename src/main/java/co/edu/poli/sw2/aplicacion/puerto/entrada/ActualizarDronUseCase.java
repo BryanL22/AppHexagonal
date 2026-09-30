@@ -1,4 +1,4 @@
-package co.edu.poli.sw2.dominio.puerto.entrada;
+package co.edu.poli.sw2.aplicacion.puerto.entrada;
 
 import co.edu.poli.sw2.dominio.modelo.Drone;
 
@@ -12,8 +12,9 @@ public interface ActualizarDronUseCase {
     /**
      * Actualiza los datos de un dron existente.
      *
-     * @param drone dron sobre el que se opera.
+     * @param drone dron con los datos nuevos.
      * @return {@code true} si la operacion tuvo efecto.
+     * @throws IllegalArgumentException si el dron no cumple las reglas de negocio.
      */
     boolean actualizar(Drone drone);
 }

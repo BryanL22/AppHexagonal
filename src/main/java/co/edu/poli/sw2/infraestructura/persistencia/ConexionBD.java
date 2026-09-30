@@ -16,7 +16,7 @@ import java.util.Map;
  *
  * <p>Al ser Singleton, existe una unica instancia de este servicio (y una
  * unica {@link Connection} JDBC) para toda la aplicacion: se obtiene con
- * {@link #obtenerInstancia()}, nunca con {@code new Conexion()} (el
+ * {@link #obtenerInstancia()}, nunca con {@code new ConexionBD()} (el
  * constructor es privado). {@link #getConnection()} reutiliza la conexion
  * ya abierta mientras siga viva, y solo crea una nueva si nunca se abrio o
  * si la anterior se cerro.</p>
@@ -35,16 +35,22 @@ import java.util.Map;
  * inventado. El archivo {@code .env} nunca debe subirse al repositorio:
  * esta excluido mediante {@code .gitignore}.</p>
  */
-public class Conexion {
+public class ConexionBD {
 
+    /** Nombre del archivo de configuracion local, relativo al directorio de trabajo. */
     private static final String ENV_FILE = ".env";
 
-    private static Conexion instancia;
+    /** Unica instancia del Singleton; se crea la primera vez que se pide. */
+    private static ConexionBD instancia;
 
+    /** URL JDBC de la base de datos ({@code DB_URL}). */
     private final String url;
+    /** Usuario de la base de datos ({@code DB_USER}). */
     private final String usuario;
+    /** Contrasena de la base de datos ({@code DB_PASSWORD}). */
     private final String password;
 
+    /** Conexion JDBC compartida; se abre en el primer uso y se reabre si se cerro. */
     private Connection connection;
 
     /**
@@ -53,7 +59,7 @@ public class Conexion {
      *
      * @throws IOException si el archivo {@code .env} existe pero no se pudo leer.
      */
-    private Conexion() throws IOException {
+    private ConexionBD() throws IOException {
         Map<String, String> variablesEnv = cargarArchivoEnv();
         this.url = obtenerVariable(variablesEnv, "DB_URL");
         this.usuario = obtenerVariable(variablesEnv, "DB_USER");
@@ -65,12 +71,12 @@ public class Conexion {
      * Crea la unica instancia la primera vez que se invoca; en llamadas
      * posteriores devuelve siempre esa misma instancia.
      *
-     * @return la unica instancia de {@link Conexion} de la aplicacion.
+     * @return la unica instancia de {@link ConexionBD} de la aplicacion.
      * @throws IOException si el archivo {@code .env} existe pero no se pudo leer.
      */
-    public static synchronized Conexion obtenerInstancia() throws IOException {
+    public static synchronized ConexionBD obtenerInstancia() throws IOException {
         if (instancia == null) {
-            instancia = new Conexion();
+            instancia = new ConexionBD();
         }
         return instancia;
     }

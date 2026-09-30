@@ -83,6 +83,22 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
             </plugin>
+
+            <!-- Documentacion HTML con: mvn javadoc:javadoc (queda en target/site/apidocs) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <show>private</show>
+                    <doclint>all</doclint>
+                    <docencoding>UTF-8</docencoding>
+                    <charset>UTF-8</charset>
+                    <locale>es</locale>
+                    <doctitle>Gestión de Drones - Arquitectura Hexagonal</doctitle>
+                    <windowtitle>Gestión de Drones</windowtitle>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

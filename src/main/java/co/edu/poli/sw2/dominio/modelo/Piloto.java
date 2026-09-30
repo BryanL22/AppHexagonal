@@ -5,9 +5,13 @@ package co.edu.poli.sw2.dominio.modelo;
  */
 public class Piloto {
 
+    /** Identificador unico del piloto. */
     private String id;
+    /** Nombre completo del piloto. */
     private String nombre;
+    /** Numero de licencia de vuelo. */
     private String licencia;
+    /** Telefono de contacto. */
     private String telefono;
 
     /**
@@ -103,6 +107,11 @@ public class Piloto {
         this.telefono = telefono;
     }
 
+    /**
+     * Devuelve una representacion en texto con todos los datos, util para depuracion.
+     *
+     * @return los atributos de este objeto en formato legible.
+     */
     @Override
     public String toString() {
         return "Piloto{" +

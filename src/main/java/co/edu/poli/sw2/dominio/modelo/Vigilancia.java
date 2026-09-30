@@ -5,6 +5,7 @@ package co.edu.poli.sw2.dominio.modelo;
  */
 public class Vigilancia extends Drone {
 
+    /** Indica si el dron cuenta con camara de deteccion termica. */
     private boolean deteccionTermica;
 
     /**
@@ -49,7 +50,7 @@ public class Vigilancia extends Drone {
     }
 
     /**
-     * Crea una copia de este dron de vigilancia (patron Prototype), incluyendo
+     * Crea una copia de este dron de vigilancia, incluyendo
      * si tiene deteccion termica. El objeto devuelto tiene una identidad
      * (referencia de memoria) distinta a la de {@code this}.
      *
@@ -60,6 +61,11 @@ public class Vigilancia extends Drone {
         return (Vigilancia) super.clone();
     }
 
+    /**
+     * Devuelve una representacion en texto con todos los datos, util para depuracion.
+     *
+     * @return los atributos de este objeto en formato legible.
+     */
     @Override
     public String toString() {
         return "Vigilancia{" +

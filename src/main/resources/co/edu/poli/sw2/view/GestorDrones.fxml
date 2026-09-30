@@ -53,16 +53,14 @@
             <ComboBox fx:id="cbTipo" promptText="Selecciona un tipo" prefWidth="220"
                       GridPane.rowIndex="5" GridPane.columnIndex="1"/>
 
-                      GridPane.rowIndex="6" GridPane.columnIndex="1"/>
-
             <Label fx:id="lblCapacidadTanque" text="Capacidad tanque (L):"
-                   GridPane.rowIndex="7" GridPane.columnIndex="0"/>
-            <TextField fx:id="txtCapacidadTanque" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+                   GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtCapacidadTanque" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
 
             <Label fx:id="lblDeteccionTermica" text="Deteccion termica:"
-                   GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+                   GridPane.rowIndex="6" GridPane.columnIndex="0"/>
             <CheckBox fx:id="chkDeteccionTermica" text="Si"
-                      GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+                      GridPane.rowIndex="6" GridPane.columnIndex="1"/>
         </GridPane>
 
         <HBox alignment="CENTER" spacing="10">

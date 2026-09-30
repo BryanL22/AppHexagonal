@@ -5,8 +5,11 @@ package co.edu.poli.sw2.dominio.modelo;
  */
 public class Sensor {
 
+    /** Identificador unico del sensor. */
     private String id;
+    /** Tipo de sensor (por ejemplo, camara, GPS o LIDAR). */
     private String tipo;
+    /** Fabricante del sensor. */
     private String fabricante;
 
     /**
@@ -82,6 +85,11 @@ public class Sensor {
         this.fabricante = fabricante;
     }
 
+    /**
+     * Devuelve una representacion en texto con todos los datos, util para depuracion.
+     *
+     * @return los atributos de este objeto en formato legible.
+     */
     @Override
     public String toString() {
         return "Sensor{" +

@@ -1,4 +1,4 @@
-package co.edu.poli.sw2.dominio.puerto.salida;
+package co.edu.poli.sw2.aplicacion.puerto.salida;
 
 /**
  * Error de persistencia que pueden propagar los puertos de salida.

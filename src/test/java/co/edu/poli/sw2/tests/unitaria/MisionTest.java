@@ -1,4 +1,7 @@
-package co.edu.poli.sw2.dominio.modelo;
+package co.edu.poli.sw2.tests.unitaria;
+
+import co.edu.poli.sw2.dominio.modelo.Drone;
+import co.edu.poli.sw2.dominio.modelo.Mision;
 
 import org.junit.jupiter.api.Test;
 
@@ -6,10 +9,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Pruebas unitarias de {@link Mision}.
+ */
 class MisionTest {
 
+    /** Fecha de ejemplo usada en las pruebas. */
     private static final String FECHA = "2026-08-12";
 
+    /** Verifica que el constructor asigna todos los campos y deja la lista de drones vacia. */
     @Test
     void constructorAsignaTodosLosCamposYDronesInicializaVacio() {
         Mision mision = new Mision("M1", "Inspeccion", "Bogota", FECHA);
@@ -22,6 +30,7 @@ class MisionTest {
         assertTrue(mision.getDrones().isEmpty());
     }
 
+    /** Verifica que una mision puede agrupar varios drones. */
     @Test
     void unaMisionAgrupaVariosDrones() {
         Mision mision = new Mision("M1", "Inspeccion", "Bogota", FECHA);
@@ -35,6 +44,7 @@ class MisionTest {
         assertTrue(mision.getDrones().containsAll(java.util.List.of(drone1, drone2)));
     }
 
+    /** Verifica que {@code toString} incluye los drones de la mision. */
     @Test
     void toStringIncluyeLosDrones() {
         Mision mision = new Mision("M1", "Inspeccion", "Bogota", FECHA);

@@ -1,4 +1,7 @@
-package co.edu.poli.sw2.dominio.modelo;
+package co.edu.poli.sw2.tests.unitaria;
+
+import co.edu.poli.sw2.dominio.modelo.Drone;
+import co.edu.poli.sw2.dominio.modelo.Piloto;
 
 import org.junit.jupiter.api.Test;
 
@@ -7,8 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Pruebas unitarias de {@link Drone}.
+ */
 class DroneTest {
 
+    /** Verifica que el constructor vacio deja el piloto en {@code null} y la lista de sensores vacia (no {@code null}). */
     @Test
     void constructorVacioInicializaSensoresYPilotoEnNulo() {
         Drone drone = new Drone();
@@ -18,6 +25,7 @@ class DroneTest {
         assertTrue(drone.getSensores().isEmpty());
     }
 
+    /** Verifica que el constructor con datos asigna todos los campos. */
     @Test
     void constructorConDatosAsignaTodosLosCampos() {
         Drone drone = new Drone("D1", "SER-001", "ModeloX", "FabricanteX", 2.5);
@@ -29,6 +37,7 @@ class DroneTest {
         assertEquals(2.5, drone.getPeso());
     }
 
+    /** Verifica que se puede asignar un piloto al dron. */
     @Test
     void unDroneTieneUnSoloPilotoAsociado() {
         Drone drone = new Drone();
@@ -39,6 +48,7 @@ class DroneTest {
         assertEquals(piloto, drone.getPiloto());
     }
 
+    /** Verifica que asignar un segundo piloto reemplaza al primero (relacion 1 a 1). */
     @Test
     void reemplazarElPilotoDescartaElAnterior() {
         Drone drone = new Drone();
@@ -51,6 +61,7 @@ class DroneTest {
         assertEquals(segundo, drone.getPiloto());
     }
 
+    /** Verifica que {@code toString} incluye los datos del piloto. */
     @Test
     void toStringIncluyeElPiloto() {
         Drone drone = new Drone("D1", "SER-001", "ModeloX", "FabricanteX", 2.5);

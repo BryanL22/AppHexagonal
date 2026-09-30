@@ -1,4 +1,4 @@
-package co.edu.poli.sw2.dominio.puerto.entrada;
+package co.edu.poli.sw2.aplicacion.puerto.entrada;
 
 /**
  * Puerto de entrada (driving port) del hexagono: eliminar un dron.
@@ -12,6 +12,7 @@ public interface EliminarDronUseCase {
      *
      * @param id identificador del dron.
      * @return {@code true} si la operacion tuvo efecto.
+     * @throws IllegalArgumentException si el identificador esta vacio.
      */
     boolean eliminar(String id);
 }

@@ -1,5 +1,11 @@
 package co.edu.poli.sw2.infraestructura.persistencia;
 
+import co.edu.poli.sw2.aplicacion.puerto.salida.ActualizarDronPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.BuscarDronPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.BuscarDronesPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.EliminarDronPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.GuardarDronPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 import co.edu.poli.sw2.dominio.modelo.Agricultura;
 import co.edu.poli.sw2.dominio.modelo.Drone;
 import co.edu.poli.sw2.dominio.modelo.Vigilancia;
@@ -14,18 +20,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Implementacion del contrato {@code DroneRepositoryPort} para la entidad {@link Drone} y
- * sus especializaciones {@link Agricultura} y {@link Vigilancia}.
+ * Adaptador de salida: implementacion MySQL de los cinco puertos de salida
+ * para la entidad {@link Drone} y sus especializaciones {@link Agricultura}
+ * y {@link Vigilancia}. Es el unico lugar del proyecto que contiene SQL.
+ *
+ * <p>Convierte las excepciones tecnicas ({@link SQLException},
+ * {@link IOException}) en una {@link PersistenciaException} para que no
+ * crucen hacia la aplicacion ni el dominio. Si algun dia se cambia MySQL por
+ * otro motor basta con escribir otro adaptador que implemente los mismos
+ * puertos y cambiar una linea en {@code App}.</p>
  *
  * <p>Sigue el patron de herencia por tabla: los campos comunes viven en
  * {@code drone} y los propios de cada especializacion en {@code agricultura}
  * / {@code vigilancia}, relacionadas mediante {@code id_drone}
- * (con {@code ON DELETE CASCADE}). En lugar de tener un DAO por cada
+ * (con {@code ON DELETE CASCADE}). En lugar de tener un repositorio por cada
  * subclase, esta unica clase decide con {@code instanceof} que tabla
  * adicional leer, escribir o actualizar segun el tipo real del objeto.</p>
  *
  * <p>Esta clase tambien garantiza la existencia de las tablas relacionadas
- * del diagrama de clases que aun no tienen su propio DAO:</p>
+ * del diagrama de clases que aun no tienen su propio repositorio:</p>
  * <ul>
  *     <li>{@code piloto}: independiente; {@code drone} la referencia de
  *     forma opcional mediante {@code id_piloto} (relacion 1 a 1,
@@ -50,19 +63,22 @@ import java.util.List;
  * <p>El identificador de cada dron lo asigna el usuario manualmente (no se
  * genera de forma automatica) y es la llave primaria de {@code drone}.</p>
  *
- * <p>La conexion JDBC se obtiene del servicio Singleton {@link Conexion} y
+ * <p>La conexion JDBC se obtiene del servicio Singleton {@link ConexionBD} y
  * se comparte entre todas las operaciones (no se cierra al terminar cada
  * una): cada metodo solo cierra sus propios {@link Statement}/
  * {@link ResultSet}.</p>
  */
-public class DroneDAO {
+public class MySqlDronRepository implements GuardarDronPort, BuscarDronPort, BuscarDronesPort,
+        ActualizarDronPort, EliminarDronPort {
 
+    /** Crea la tabla {@code piloto}. */
     private static final String SQL_CREAR_TABLA_PILOTO = "CREATE TABLE IF NOT EXISTS piloto (" +
             "id VARCHAR(100) PRIMARY KEY, " +
             "nombre VARCHAR(100) NOT NULL, " +
             "licencia VARCHAR(100) NOT NULL, " +
             "telefono VARCHAR(100) NOT NULL)";
 
+    /** Crea la tabla {@code drone}, con los campos comunes a todos los drones. */
     private static final String SQL_CREAR_TABLA_DRONE = "CREATE TABLE IF NOT EXISTS drone (" +
             "id VARCHAR(100) PRIMARY KEY, " +
             "`serial` VARCHAR(100) NOT NULL, " +
@@ -72,16 +88,19 @@ public class DroneDAO {
             "id_piloto VARCHAR(100), " +
             "FOREIGN KEY (id_piloto) REFERENCES piloto(id) ON DELETE SET NULL)";
 
+    /** Crea la tabla {@code agricultura}, con los campos propios de {@link Agricultura}. */
     private static final String SQL_CREAR_TABLA_AGRICULTURA = "CREATE TABLE IF NOT EXISTS agricultura (" +
             "id_drone VARCHAR(100) PRIMARY KEY, " +
             "capacidad_tanque DOUBLE NOT NULL, " +
             "FOREIGN KEY (id_drone) REFERENCES drone(id) ON DELETE CASCADE)";
 
+    /** Crea la tabla {@code vigilancia}, con los campos propios de {@link Vigilancia}. */
     private static final String SQL_CREAR_TABLA_VIGILANCIA = "CREATE TABLE IF NOT EXISTS vigilancia (" +
             "id_drone VARCHAR(100) PRIMARY KEY, " +
             "deteccion_termica BOOLEAN NOT NULL, " +
             "FOREIGN KEY (id_drone) REFERENCES drone(id) ON DELETE CASCADE)";
 
+    /** Crea la tabla {@code sensor}; cada sensor pertenece a un unico dron. */
     private static final String SQL_CREAR_TABLA_SENSOR = "CREATE TABLE IF NOT EXISTS sensor (" +
             "id VARCHAR(100) PRIMARY KEY, " +
             "tipo VARCHAR(100) NOT NULL, " +
@@ -89,16 +108,20 @@ public class DroneDAO {
             "id_drone VARCHAR(100) NOT NULL, " +
             "FOREIGN KEY (id_drone) REFERENCES drone(id) ON DELETE CASCADE)";
 
+    /** Crea la tabla {@code mision}. */
     private static final String SQL_CREAR_TABLA_MISION = "CREATE TABLE IF NOT EXISTS mision (" +
             "id VARCHAR(100) PRIMARY KEY, " +
             "nombre VARCHAR(100) NOT NULL, " +
             "ubicacion VARCHAR(100) NOT NULL, " +
             "fecha VARCHAR(100) NOT NULL)";
 
-    // Tabla intermedia (resuelve la relacion muchos-a-muchos entre mision y
-    // drone: una mision usa varios drones y un mismo drone puede participar
-    // en varias misiones). La llave primaria compuesta evita ademas que un
-    // mismo drone quede asignado dos veces a la misma mision.
+    /**
+     * Crea la tabla intermedia {@code mision_drone}, que resuelve la relacion
+     * muchos-a-muchos entre mision y drone: una mision usa varios drones y un
+     * mismo drone puede participar en varias misiones. La llave primaria
+     * compuesta evita ademas que un mismo drone quede asignado dos veces a la
+     * misma mision.
+     */
     private static final String SQL_CREAR_TABLA_MISION_DRONE = "CREATE TABLE IF NOT EXISTS mision_drone (" +
             "id_mision VARCHAR(100) NOT NULL, " +
             "id_drone VARCHAR(100) NOT NULL, " +
@@ -106,14 +129,17 @@ public class DroneDAO {
             "FOREIGN KEY (id_mision) REFERENCES mision(id) ON DELETE CASCADE, " +
             "FOREIGN KEY (id_drone) REFERENCES drone(id) ON DELETE CASCADE)";
 
+    /** Cuenta si la tabla {@code drone} ya tiene la columna {@code id_piloto}. */
     private static final String SQL_VERIFICAR_COLUMNA_ID_PILOTO =
             "SELECT COUNT(*) FROM information_schema.columns " +
                     "WHERE table_schema = DATABASE() AND table_name = 'drone' AND column_name = 'id_piloto'";
 
+    /** Agrega la columna {@code id_piloto} y su llave foranea a una tabla {@code drone} antigua. */
     private static final String SQL_AGREGAR_COLUMNA_ID_PILOTO =
             "ALTER TABLE drone ADD COLUMN id_piloto VARCHAR(100), " +
                     "ADD FOREIGN KEY (id_piloto) REFERENCES piloto(id) ON DELETE SET NULL";
 
+    /** Consulta base que une {@code drone} con sus especializaciones; el tipo se deduce de cual union trae datos. */
     private static final String SQL_SELECT_BASE =
             "SELECT d.id, d.`serial`, d.modelo, d.fabricante, d.peso, " +
                     "a.capacidad_tanque, v.deteccion_termica " +
@@ -122,10 +148,89 @@ public class DroneDAO {
                     "LEFT JOIN vigilancia v ON d.id = v.id_drone";
 
     /**
-     * Crea el DAO. No recibe dependencias: la conexion se obtiene del
-     * servicio Singleton {@link Conexion} en cada operacion.
+     * Crea el repositorio. No recibe dependencias: la conexion se obtiene del
+     * servicio Singleton {@link ConexionBD} en cada operacion.
      */
-    public DroneDAO() {
+    public MySqlDronRepository() {
+    }
+
+    /**
+     * Guarda un dron nuevo con su especializacion.
+     *
+     * @param drone dron a guardar.
+     * @return {@code true} si quedo guardado.
+     * @throws PersistenciaException si falla la base de datos o la lectura de la configuracion.
+     */
+    @Override
+    public boolean guardar(Drone drone) {
+        try {
+            return insertar(drone);
+        } catch (SQLException | IOException e) {
+            throw new PersistenciaException("No se pudo guardar el drone.", e);
+        }
+    }
+
+    /**
+     * Busca un dron por su identificador.
+     *
+     * @param id identificador del dron.
+     * @return el dron encontrado, o {@code null} si no existe.
+     * @throws PersistenciaException si falla la base de datos o la lectura de la configuracion.
+     */
+    @Override
+    public Drone buscarPorId(String id) {
+        try {
+            return seleccionarPorId(id);
+        } catch (SQLException | IOException e) {
+            throw new PersistenciaException("No se pudo consultar el drone.", e);
+        }
+    }
+
+    /**
+     * Busca todos los drones registrados.
+     *
+     * @return lista de drones; vacia si no hay ninguno.
+     * @throws PersistenciaException si falla la base de datos o la lectura de la configuracion.
+     */
+    @Override
+    public List<Drone> buscarTodos() {
+        try {
+            return seleccionarTodos();
+        } catch (SQLException | IOException e) {
+            throw new PersistenciaException("No se pudieron consultar los drones.", e);
+        }
+    }
+
+    /**
+     * Actualiza un dron existente.
+     *
+     * @param drone dron con los datos nuevos.
+     * @return {@code true} si se actualizo; {@code false} si no existe o su tipo no coincide.
+     * @throws PersistenciaException si falla la base de datos o la lectura de la configuracion.
+     */
+    @Override
+    public boolean actualizar(Drone drone) {
+        try {
+            return modificar(drone);
+        } catch (SQLException | IOException e) {
+            throw new PersistenciaException("No se pudo actualizar el drone.", e);
+        }
+    }
+
+    /**
+     * Elimina un dron.
+     *
+     * @param id identificador del dron.
+     * @return {@code true} si existia y se elimino.
+     * @throws PersistenciaException si falla la base de datos o la lectura de la configuracion.
+     */
+    @Override
+    public boolean eliminar(String id) {
+        try {
+            return borrar(id);
+        } catch (SQLException | IOException e) {
+            throw new PersistenciaException("No se pudo eliminar el drone.", e);
+        }
     }
 
     /**
@@ -136,14 +241,14 @@ public class DroneDAO {
      * dependen de {@code drone}) y {@code mision}, y por ultimo la tabla
      * intermedia {@code mision_drone} (que depende de {@code drone} y de
      * {@code mision}). La conexion no se cierra aqui: la administra
-     * {@link Conexion} durante toda la vida de la aplicacion.
+     * {@link ConexionBD} durante toda la vida de la aplicacion.
      *
      * @return conexion JDBC lista para usar.
      * @throws SQLException si falla la conexion o la creacion de alguna tabla.
      * @throws IOException si no se pudo leer la configuracion de conexion.
      */
     private Connection obtenerConexion() throws SQLException, IOException {
-        Connection connection = Conexion.obtenerInstancia().getConnection();
+        Connection connection = ConexionBD.obtenerInstancia().getConnection();
         crearTabla(connection, SQL_CREAR_TABLA_PILOTO);
         crearTabla(connection, SQL_CREAR_TABLA_DRONE);
         agregarColumnaIdPilotoSiFalta(connection);
@@ -181,10 +286,11 @@ public class DroneDAO {
 
     /**
      * Elimina la columna {@code tipo_control} de la tabla {@code drone} si
-     * quedo de una version anterior del esquema. El tipo de control ya no es
-     * un atributo de {@link Drone} (esa responsabilidad es del patron
-     * Bridge, ver {@link co.edu.poli.sw2.services.ControlVuelo}), por lo que
-     * no debe persistirse en base de datos.
+     * quedo de una version anterior del esquema. El tipo de control de vuelo
+     * dejo de ser un atributo de {@link Drone}, por lo que ya no se persiste.
+     * Si la columna no existe, el error de MySQL se ignora.
+     *
+     * @param connection conexion JDBC activa sobre la cual alterar la tabla.
      */
     private void eliminarColumnaTipoControlSiExiste(Connection connection) {
         try (Statement statement = connection.createStatement()) {
@@ -207,7 +313,17 @@ public class DroneDAO {
         }
     }
 
-    public boolean crear(Drone obj) throws SQLException, IOException {
+    /**
+     * Inserta un dron en {@code drone} y, segun su tipo, en {@code agricultura}
+     * o {@code vigilancia}. Ambas inserciones van en una misma transaccion: si
+     * la segunda falla, se deshace la primera.
+     *
+     * @param obj dron a insertar; su identificador no debe existir aun.
+     * @return {@code true} si el dron quedo guardado.
+     * @throws SQLException si falla alguna insercion (por ejemplo, identificador duplicado).
+     * @throws IOException si no se pudo leer la configuracion de conexion.
+     */
+    private boolean insertar(Drone obj) throws SQLException, IOException {
         String sql = "INSERT INTO drone (id, `serial`, modelo, fabricante, peso) VALUES (?, ?, ?, ?, ?)";
 
         Connection connection = obtenerConexion();
@@ -237,6 +353,14 @@ public class DroneDAO {
         }
     }
 
+    /**
+     * Inserta la fila de la tabla propia del tipo de dron. Un {@link Drone}
+     * generico no tiene tabla adicional, asi que no inserta nada.
+     *
+     * @param connection conexion con la transaccion en curso.
+     * @param obj dron cuya especializacion se inserta.
+     * @throws SQLException si la insercion falla.
+     */
     private void insertarEspecializacion(Connection connection, Drone obj) throws SQLException {
         if (obj instanceof Agricultura agricultura) {
             try (PreparedStatement statement = connection.prepareStatement(
@@ -255,7 +379,14 @@ public class DroneDAO {
         }
     }
 
-    public List<Drone> obtenerTodos() throws SQLException, IOException {
+    /**
+     * Consulta todos los drones registrados, cada uno con su tipo concreto.
+     *
+     * @return lista de drones; vacia si no hay ninguno.
+     * @throws SQLException si falla la consulta.
+     * @throws IOException si no se pudo leer la configuracion de conexion.
+     */
+    private List<Drone> seleccionarTodos() throws SQLException, IOException {
         List<Drone> drones = new ArrayList<>();
 
         Connection connection = obtenerConexion();
@@ -271,7 +402,15 @@ public class DroneDAO {
         return drones;
     }
 
-    public Drone obtenerPorId(String id) throws SQLException, IOException {
+    /**
+     * Consulta un dron por su identificador.
+     *
+     * @param id identificador del dron.
+     * @return el dron con su tipo concreto, o {@code null} si no existe.
+     * @throws SQLException si falla la consulta.
+     * @throws IOException si no se pudo leer la configuracion de conexion.
+     */
+    private Drone seleccionarPorId(String id) throws SQLException, IOException {
         String sql = SQL_SELECT_BASE + " WHERE d.id = ?";
 
         Connection connection = obtenerConexion();
@@ -289,7 +428,18 @@ public class DroneDAO {
         return null;
     }
 
-    public boolean actualizar(Drone obj) throws SQLException, IOException {
+    /**
+     * Actualiza los datos comunes y los de la especializacion de un dron, en
+     * una misma transaccion.
+     *
+     * @param obj dron con los datos nuevos; se localiza por su identificador.
+     * @return {@code true} solo si se actualizaron ambas tablas. Es
+     *         {@code false} si el identificador no existe o si el tipo del
+     *         objeto no coincide con el registrado.
+     * @throws SQLException si falla alguna actualizacion.
+     * @throws IOException si no se pudo leer la configuracion de conexion.
+     */
+    private boolean modificar(Drone obj) throws SQLException, IOException {
         String sql = "UPDATE drone SET `serial` = ?, modelo = ?, fabricante = ?, peso = ? WHERE id = ?";
 
         Connection connection = obtenerConexion();
@@ -320,6 +470,16 @@ public class DroneDAO {
         }
     }
 
+    /**
+     * Actualiza la fila de la tabla propia del tipo de dron.
+     *
+     * @param connection conexion con la transaccion en curso.
+     * @param obj dron cuya especializacion se actualiza.
+     * @return filas afectadas; {@code 0} si el dron no estaba registrado con
+     *         ese tipo, y {@code 1} para un {@link Drone} generico, que no
+     *         tiene tabla adicional.
+     * @throws SQLException si la actualizacion falla.
+     */
     private int actualizarEspecializacion(Connection connection, Drone obj) throws SQLException {
         if (obj instanceof Agricultura agricultura) {
             try (PreparedStatement statement = connection.prepareStatement(
@@ -341,7 +501,16 @@ public class DroneDAO {
         return 1;
     }
 
-    public boolean eliminar(String id) throws SQLException, IOException {
+    /**
+     * Elimina un dron. Sus filas en {@code agricultura}, {@code vigilancia},
+     * {@code sensor} y {@code mision_drone} se borran en cascada.
+     *
+     * @param id identificador del dron.
+     * @return {@code true} si existia y se elimino.
+     * @throws SQLException si falla la eliminacion.
+     * @throws IOException si no se pudo leer la configuracion de conexion.
+     */
+    private boolean borrar(String id) throws SQLException, IOException {
         // Las filas de "agricultura"/"vigilancia" se eliminan en cascada (ON DELETE CASCADE).
         String sql = "DELETE FROM drone WHERE id = ?";
 
@@ -353,6 +522,15 @@ public class DroneDAO {
         }
     }
 
+    /**
+     * Construye un dron a partir de la fila actual de {@link #SQL_SELECT_BASE}.
+     * Si trae capacidad de tanque es {@link Agricultura}; si trae deteccion
+     * termica, {@link Vigilancia}; si no trae ninguna, un {@link Drone} generico.
+     *
+     * @param resultSet resultado posicionado en la fila a leer.
+     * @return el dron del tipo que corresponda.
+     * @throws SQLException si no se puede leer alguna columna.
+     */
     private Drone mapearDrone(ResultSet resultSet) throws SQLException {
         String id = resultSet.getString("id");
         String serial = resultSet.getString("serial");

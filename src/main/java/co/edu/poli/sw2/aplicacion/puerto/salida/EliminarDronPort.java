@@ -1,4 +1,4 @@
-package co.edu.poli.sw2.dominio.puerto.salida;
+package co.edu.poli.sw2.aplicacion.puerto.salida;
 
 /**
  * Puerto de salida (driven port) del hexagono: eliminar un dron del almacenamiento.

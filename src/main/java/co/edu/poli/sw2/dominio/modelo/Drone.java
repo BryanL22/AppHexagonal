@@ -10,27 +10,27 @@ import java.util.List;
  * <p>Es la superclase de los tipos especializados de dron
  * ({@link co.edu.poli.sw2.dominio.modelo.Agricultura} y {@link co.edu.poli.sw2.dominio.modelo.Vigilancia}).</p>
  *
- * <p>Implementa {@link Cloneable} para soportar el patron Prototype: permite
- * obtener una copia de un dron (con una identidad de objeto distinta a la
- * del original) sin depender de sus constructores ni conocer su tipo
- * concreto. El punto de entrada para el resto de la aplicacion es
- * {@link co.edu.poli.sw2.services.DronePrototype}.</p>
+ * <p>Implementa {@link Cloneable} para poder obtener una copia independiente
+ * de un dron (ver {@link #clone()}) sin conocer su tipo concreto.</p>
  *
- * <p>Esta clase no tiene ninguna responsabilidad del patron Bridge: no
- * almacena ni conoce el tipo de control de vuelo asignado. El control
- * (basico o autonomo) se selecciona y aplica en tiempo de ejecucion desde
- * {@link co.edu.poli.sw2.services.ControlVuelo} (la Abstraccion del Bridge),
- * que referencia al dron unicamente mientras se ejecuta la accion de
- * control, sin que esa asociacion se persista en base de datos.</p>
+ * <p>Pertenece al dominio: solo depende de {@code java.util}, sin JavaFX,
+ * JDBC ni ninguna otra tecnologia.</p>
  */
 public class Drone implements Cloneable {
 
+    /** Identificador unico, asignado manualmente por el usuario. */
     private String id;
+    /** Numero de serie del fabricante. */
     private String serial;
+    /** Modelo del dron. */
     private String modelo;
+    /** Empresa que fabrico el dron. */
     private String fabricante;
+    /** Peso del dron en kilogramos. */
     private double peso;
+    /** Piloto asignado; {@code null} si no tiene. */
     private Piloto piloto;
+    /** Sensores instalados en el dron; nunca es {@code null}. */
     private List<Sensor> sensores;
 
     /**
@@ -185,7 +185,38 @@ public class Drone implements Cloneable {
     }
 
     /**
-     * Crea una copia de este dron (patron Prototype). Los campos simples se
+     * Verifica las reglas de negocio de un dron: identificador, serial,
+     * modelo y fabricante son obligatorios, y el peso debe ser mayor que 0.
+     * Las subclases la amplian con las reglas de su especializacion.
+     *
+     * @throws IllegalArgumentException si alguna regla no se cumple; el
+     *         mensaje indica cual.
+     */
+    public void validar() {
+        exigirTexto(id, "El ID");
+        exigirTexto(serial, "El serial");
+        exigirTexto(modelo, "El modelo");
+        exigirTexto(fabricante, "El fabricante");
+        if (peso <= 0) {
+            throw new IllegalArgumentException("El peso debe ser mayor que 0.");
+        }
+    }
+
+    /**
+     * Exige que un dato de texto tenga contenido.
+     *
+     * @param valor valor a revisar; puede ser {@code null}.
+     * @param campo nombre del dato para el mensaje de error (p. ej. "El serial").
+     * @throws IllegalArgumentException si el valor es {@code null} o solo tiene espacios.
+     */
+    private static void exigirTexto(String valor, String campo) {
+        if (valor == null || valor.isBlank()) {
+            throw new IllegalArgumentException(campo + " es obligatorio.");
+        }
+    }
+
+    /**
+     * Crea una copia de este dron. Los campos simples se
      * copian por valor y la lista de sensores se duplica para que el clon no
      * comparta su lista mutable con el original; el objeto devuelto tiene una
      * identidad (referencia de memoria) distinta a la de {@code this}.
@@ -203,6 +234,11 @@ public class Drone implements Cloneable {
         }
     }
 
+    /**
+     * Devuelve una representacion en texto con todos los datos, util para depuracion.
+     *
+     * @return los atributos de este objeto en formato legible.
+     */
     @Override
     public String toString() {
         return "Drone{" +

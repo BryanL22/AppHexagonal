@@ -8,10 +8,15 @@ import java.util.List;
  */
 public class Mision {
 
+    /** Identificador unico de la mision. */
     private String id;
+    /** Nombre de la mision. */
     private String nombre;
+    /** Lugar donde se realiza la mision. */
     private String ubicacion;
+    /** Fecha de la mision. */
     private String fecha;
+    /** Drones que participan en la mision; nunca es {@code null}. */
     private List<Drone> drones;
 
     /**
@@ -127,6 +132,11 @@ public class Mision {
         this.drones = drones;
     }
 
+    /**
+     * Devuelve una representacion en texto con todos los datos, util para depuracion.
+     *
+     * @return los atributos de este objeto en formato legible.
+     */
     @Override
     public String toString() {
         return "Mision{" +
