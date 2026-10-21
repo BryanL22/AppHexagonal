@@ -12,6 +12,10 @@ module co.edu.poli.sw2 {
     // El driver de MySQL no se declara: DriverManager lo encuentra solo.
     requires java.sql;
 
+    // Clima: HttpClient para las APIs de Open-Meteo y Gson para leer el JSON
+    requires java.net.http;
+    requires com.google.gson;
+
     // ── Apertura al framework JavaFX ─────────────────────────────────────
     // vista: App necesita ser instanciada por javafx.graphics
     opens co.edu.poli.sw2.vista to javafx.fxml, javafx.graphics;
