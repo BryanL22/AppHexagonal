@@ -5,14 +5,23 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort;
 import co.edu.poli.sw2.aplicacion.servicio.ActualizarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronesServicio;
 import co.edu.poli.sw2.aplicacion.servicio.CrearDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.EliminarDronServicio;
+import co.edu.poli.sw2.aplicacion.servicio.GetWeatherByCityService;
+import co.edu.poli.sw2.aplicacion.servicio.WeatherNotificationService;
+import co.edu.poli.sw2.dominio.weather.WeatherObserver;
 import co.edu.poli.sw2.infraestructura.persistencia.ConexionBD;
 import co.edu.poli.sw2.infraestructura.persistencia.MySqlDronRepository;
 import co.edu.poli.sw2.infraestructura.ui.MainController;
+import co.edu.poli.sw2.infraestructura.weather.GeoApiAdapter;
+import co.edu.poli.sw2.infraestructura.weather.GeoApiClient;
+import co.edu.poli.sw2.infraestructura.weather.OpenWeatherAdapter;
+import co.edu.poli.sw2.infraestructura.weather.OpenWeatherClient;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -70,10 +79,17 @@ public class App extends Application {
         ActualizarDronUseCase actualizarUC = new ActualizarDronServicio(dronRepo);
         EliminarDronUseCase eliminarUC = new EliminarDronServicio(dronRepo);
 
-        // 3. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
+        // 3. Caso de uso meteorologico y suscripcion Observer compartida.
+        String apiKey = System.getenv("OPENWEATHER_API_KEY");
+        WeatherNotificationService notificaciones = new WeatherNotificationService(new WeatherObserver(), dronRepo);
+        GeocodificarCiudadPort geocodificador = new GeoApiAdapter(new GeoApiClient(apiKey));
+        GetWeatherByCityUseCase climaUC = new GetWeatherByCityService(
+            new OpenWeatherAdapter(geocodificador, new OpenWeatherClient(apiKey)), notificaciones);
+
+        // 4. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/co/edu/poli/sw2/view/GestorDrones.fxml"));
         loader.setControllerFactory(tipo -> new MainController(
-                crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC));
+            crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones));
         Parent root = loader.load();
 
         ScrollPane contenedor = new ScrollPane(root);

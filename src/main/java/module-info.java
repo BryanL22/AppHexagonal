@@ -11,6 +11,8 @@ module co.edu.poli.sw2 {
     // ── Dependencias de infraestructura ──────────────────────────────────
     // El driver de MySQL no se declara: DriverManager lo encuentra solo.
     requires java.sql;
+    requires java.net.http;
+    requires com.fasterxml.jackson.databind;
 
     // ── Apertura al framework JavaFX ─────────────────────────────────────
     // vista: App necesita ser instanciada por javafx.graphics

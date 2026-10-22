@@ -1,5 +1,7 @@
 package co.edu.poli.sw2.dominio.modelo;
 
+import co.edu.poli.sw2.dominio.weather.Weather;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -173,6 +175,19 @@ public class Drone implements Cloneable {
      */
     public List<Sensor> getSensores() {
         return sensores;
+    }
+
+    /**
+     * Recibe una actualizacion meteorologica sin agregar estado ajeno al modelo del dron.
+     *
+     * @param weather datos meteorologicos recibidos.
+     * @throws IllegalArgumentException si los datos son nulos.
+     */
+    public void recibirActualizacionMeteorologica(Weather weather) {
+        if (weather == null) {
+            throw new IllegalArgumentException("Los datos meteorologicos son obligatorios.");
+        }
+        weather.validar();
     }
 
     /**
