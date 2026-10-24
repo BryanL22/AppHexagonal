@@ -40,6 +40,13 @@
             <version>${mysql.connector.version}</version>
         </dependency>
 
+        <!-- Lectura de respuestas JSON de OpenWeather -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.2</version>
+        </dependency>
+
         <!-- JUnit 5 para pruebas unitarias y de integracion -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

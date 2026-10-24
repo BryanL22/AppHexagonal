@@ -74,6 +74,27 @@
             <Button text="Eliminar" prefWidth="150" styleClass="crud-button" onAction="#onEliminar"/>
         </HBox>
 
+        <GridPane hgap="10" vgap="8" alignment="CENTER">
+            <columnConstraints>
+            <ColumnConstraints minWidth="100"/>
+            <ColumnConstraints minWidth="220"/>
+            </columnConstraints>
+            <Label text="Clima por ciudad:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtCiudadClima" promptText="Ciudad" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+            <Button fx:id="btnConsultarClima" text="Consultar clima" onAction="#onConsultarClima"
+                GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+            <Label text="ID del dron:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtIdSuscripcion" promptText="ID" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+            <Button text="Suscribir" onAction="#onSuscribirClima" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+            <Button text="Desuscribir" onAction="#onDesuscribirClima" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+            <Button text="Ver suscripciones" onAction="#onVerSuscripcionesClima" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+            <Label text="Drones suscritos:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+            <Label fx:id="lblSuscripciones" wrapText="true" maxWidth="850"
+                   GridPane.rowIndex="3" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+            <Label fx:id="lblClima" wrapText="true" maxWidth="850"
+                   GridPane.rowIndex="4" GridPane.columnIndex="0" GridPane.columnSpan="3"/>
+        </GridPane>
+
         <TableView fx:id="tablaDrones" prefHeight="220" prefWidth="850">
             <columns>
                 <TableColumn fx:id="colId" text="ID" prefWidth="60"/>
