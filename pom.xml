@@ -16,7 +16,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javafx.version>21.0.2</javafx.version>
         <mysql.connector.version>8.3.0</mysql.connector.version>
-        <gson.version>2.11.0</gson.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <junit.platform.version>1.10.2</junit.platform.version>
     </properties>
@@ -41,11 +40,11 @@
             <version>${mysql.connector.version}</version>
         </dependency>
 
-        <!-- Lectura del JSON de las APIs de Open-Meteo -->
+        <!-- Lectura de respuestas JSON de OpenWeather -->
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.2</version>
         </dependency>
 
         <!-- JUnit 5 para pruebas unitarias y de integracion -->

@@ -5,14 +5,31 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort;
 import co.edu.poli.sw2.aplicacion.servicio.ActualizarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronesServicio;
 import co.edu.poli.sw2.aplicacion.servicio.CrearDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.EliminarDronServicio;
+import co.edu.poli.sw2.aplicacion.servicio.EvaluarViabilidadVueloServicio;
+import co.edu.poli.sw2.aplicacion.servicio.GetWeatherByCityService;
+import co.edu.poli.sw2.aplicacion.servicio.WeatherNotificationService;
+import co.edu.poli.sw2.dominio.weather.WeatherObserver;
+import co.edu.poli.sw2.dominio.weather.chain.HumidityHandler;
+import co.edu.poli.sw2.dominio.weather.chain.PressureHandler;
+import co.edu.poli.sw2.dominio.weather.chain.TemperatureHandler;
+import co.edu.poli.sw2.dominio.weather.chain.VisibilityHandler;
+import co.edu.poli.sw2.dominio.weather.chain.WeatherHandler;
+import co.edu.poli.sw2.dominio.weather.chain.WindHandler;
 import co.edu.poli.sw2.infraestructura.persistencia.ConexionBD;
 import co.edu.poli.sw2.infraestructura.persistencia.MySqlDronRepository;
 import co.edu.poli.sw2.infraestructura.ui.MainController;
+import co.edu.poli.sw2.infraestructura.weather.GeoApiAdapter;
+import co.edu.poli.sw2.infraestructura.weather.GeoApiClient;
+import co.edu.poli.sw2.infraestructura.weather.OpenWeatherAdapter;
+import co.edu.poli.sw2.infraestructura.weather.OpenWeatherClient;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -70,15 +87,29 @@ public class App extends Application {
         ActualizarDronUseCase actualizarUC = new ActualizarDronServicio(dronRepo);
         EliminarDronUseCase eliminarUC = new EliminarDronServicio(dronRepo);
 
-        // 3. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
+        // 3. Caso de uso meteorologico y suscripcion Observer compartida.
+        WeatherNotificationService notificaciones = new WeatherNotificationService(new WeatherObserver(), dronRepo);
+        GeocodificarCiudadPort geocodificador = new GeoApiAdapter(new GeoApiClient());
+        GetWeatherByCityUseCase climaUC = new GetWeatherByCityService(
+            new OpenWeatherAdapter(geocodificador, new OpenWeatherClient()), notificaciones);
+
+        // 4. Cadena de responsabilidad para evaluar viabilidad de vuelo segun el clima.
+        WeatherHandler cadena = new TemperatureHandler();
+        cadena.setNext(new HumidityHandler()).setNext(new WindHandler())
+              .setNext(new PressureHandler()).setNext(new VisibilityHandler());
+        EvaluarViabilidadVueloUseCase evaluarViabilidadUC = new EvaluarViabilidadVueloServicio(cadena);
+
+        // 5. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/co/edu/poli/sw2/view/GestorDrones.fxml"));
         loader.setControllerFactory(tipo -> new MainController(
-                crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC));
+            crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones, evaluarViabilidadUC));
         Parent root = loader.load();
 
         ScrollPane contenedor = new ScrollPane(root);
         contenedor.setFitToWidth(true);
         contenedor.setFitToHeight(true);
+        contenedor.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        contenedor.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         Scene scene = new Scene(contenedor);
         scene.getStylesheets().add(getClass().getResource("/co/edu/poli/sw2/css/style.css").toExternalForm());

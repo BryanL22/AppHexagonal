@@ -1,8 +1,8 @@
 package co.edu.poli.sw2.infraestructura.weather;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URI;
@@ -13,72 +13,68 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
-/**
- * Cliente HTTP de la API de geocodificacion de Open-Meteo
- * ({@code geocoding-api.open-meteo.com/v1/search}): convierte el nombre de
- * una ciudad en coordenadas. No requiere clave de API.
- *
- * <p>Solo habla HTTP y JSON; no conoce el dominio. Los errores tecnicos
- * los traduce {@link GeoApiAdapter}.</p>
- */
+/** Cliente HTTP de la API de geocodificacion de Open-Meteo. */
 public class GeoApiClient {
 
-    /** URL de la API de geocodificacion. */
-    private static final String URL = "https://geocoding-api.open-meteo.com/v1/search";
-
-    /** Tiempo maximo de espera de cada peticion. */
-    private static final Duration TIMEOUT = Duration.ofSeconds(10);
-
-    /** Cliente HTTP compartido para las peticiones. */
-    private final HttpClient http;
+    /** Endpoint oficial de geocodificacion directa de Open-Meteo. */
+    static final String ENDPOINT = "https://geocoding-api.open-meteo.com/v1/search";
+    /** Cliente HTTP con limite de conexion. */
+    HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10)).build();
+    /** Conversor para respuestas JSON. */
+    ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Crea el cliente con el cliente HTTP que usa.
-     *
-     * @param http cliente HTTP con el que se hacen las peticiones.
+     * Crea el cliente de geocodificacion.
      */
-    public GeoApiClient(HttpClient http) {
-        this.http = http;
+    public GeoApiClient() {
     }
 
     /**
-     * Busca las coordenadas de una ciudad. Si hay varias con el mismo nombre,
-     * devuelve la primera que entrega la API (la mas relevante).
+     * Busca coincidencias de una ciudad y devuelve el JSON de la API.
      *
-     * @param city nombre de la ciudad.
-     * @return las coordenadas encontradas, o {@code null} si la ciudad no existe.
-     * @throws IOException si la peticion falla o la API responde con error.
-     * @throws InterruptedException si se interrumpe la espera de la respuesta.
+     * @param city ciudad que se buscara.
+     * @return respuesta JSON de geocodificacion.
      */
-    public Coordinates getCoordinates(String city) throws IOException, InterruptedException {
-        String url = URL
-                + "?name=" + URLEncoder.encode(city, StandardCharsets.UTF_8)
-                + "&count=1"
-                + "&language=es"
-                + "&format=json";
+    public JsonNode buscar(String city) {
+        String query = "?name=" + codificar(city.trim()) + "&count=1&language=es&format=json";
+        return solicitar(ENDPOINT + query);
+    }
 
-        HttpRequest peticion = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT).GET().build();
-        HttpResponse<String> respuesta = http.send(peticion, HttpResponse.BodyHandlers.ofString());
-
-        if (respuesta.statusCode() != 200) {
-            throw new IOException("La API de geocodificacion respondio con codigo " + respuesta.statusCode() + ".");
+    /** Ejecuta una peticion GET y valida el estado y cuerpo HTTP.
+     *
+     * @param url URL completa de la peticion.
+     * @return cuerpo JSON parseado.
+     */
+    private JsonNode solicitar(String url) {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(15))
+                .header("Accept", "application/json")
+                .GET().build();
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new WeatherQueryException("Open-Meteo rechazo la geocodificacion (HTTP "
+                        + response.statusCode() + ").");
+            }
+            if (response.body() == null || response.body().isBlank()) {
+                throw new WeatherQueryException("Open-Meteo devolvio una respuesta vacia de geocodificacion.");
+            }
+            return objectMapper.readTree(response.body());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new WeatherQueryException("La consulta de geocodificacion fue interrumpida.", e);
+        } catch (IOException | IllegalArgumentException e) {
+            throw new WeatherQueryException("No se pudo consultar la geocodificacion de Open-Meteo.", e);
         }
+    }
 
-        // Cuando la ciudad no existe, la API no incluye el campo "results".
-        JsonObject json = JsonParser.parseString(respuesta.body()).getAsJsonObject();
-        if (!json.has("results")) {
-            return null;
-        }
-        JsonArray resultados = json.getAsJsonArray("results");
-        if (resultados.isEmpty()) {
-            return null;
-        }
-
-        JsonObject lugar = resultados.get(0).getAsJsonObject();
-        return new Coordinates(
-                lugar.get("name").getAsString(),
-                lugar.has("country") ? lugar.get("country").getAsString() : "",
-                lugar.get("latitude").getAsDouble(),
-                lugar.get("longitude").getAsDouble());
+    /** Codifica un parametro de consulta para una URL.
+     *
+     * @param value valor a codificar.
+     * @return valor codificado en UTF-8.
+     */
+    private String codificar(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

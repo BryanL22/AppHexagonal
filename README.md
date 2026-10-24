@@ -52,41 +52,33 @@ aplicación y la aplicación conoce al dominio, nunca al revés.
 | Paquete                        | Contenido                                                                                           |
 |--------------------------------|-----------------------------------------------------------------------------------------------------|
 | `dominio.modelo`               | Entidades: `Drone`, `Agricultura`, `Vigilancia`, `Piloto`, `Sensor`, `Mision`. Solo usan `java.*`.   |
-| `aplicacion.puerto.entrada`    | 5 casos de uso: `CrearDron`, `ConsultarDron`, `ConsultarDrones`, `ActualizarDron`, `EliminarDron` (sufijo `UseCase`). |
-| `aplicacion.puerto.salida`     | 5 puertos: `GuardarDron`, `BuscarDron`, `BuscarDrones`, `ActualizarDron`, `EliminarDron` (sufijo `Port`) y `PersistenciaException`. |
-| `aplicacion.servicio`          | Un servicio por caso de uso: `CrearDronServicio`, `ConsultarDronServicio`, `ConsultarDronesServicio`, `ActualizarDronServicio`, `EliminarDronServicio`. |
-| `infraestructura.persistencia` | `MySqlDronRepository` (implementa los 5 puertos de salida con SQL) y `ConexionBD` (Singleton JDBC).  |
+| `dominio.weather`              | Modelo meteorologico: `Weather` y sujeto `WeatherObserver` (patron Observer).                       |
+| `dominio.weather.chain`        | Evaluacion meteorologica: `WeatherHandler`, `TemperatureHandler`, `HumidityHandler`, `WindHandler`, `PressureHandler`, `VisibilityHandler` y `ViabilityResult` (patron Chain of Responsibility). |
+| `aplicacion.puerto.entrada`    | Casos de uso: CRUD de drones, `GetWeatherByCityUseCase`, `GestionarSuscripcionesClimaUseCase` y `EvaluarViabilidadVueloUseCase`. |
+| `aplicacion.puerto.salida`     | Puertos: persistencia de drones, `ConsultarClimaPorCiudadPort`, `GeocodificarCiudadPort`, `WeatherQueryException` y `PersistenciaException`. |
+| `aplicacion.servicio`          | Servicios de aplicacion: CRUD de drones, `GetWeatherByCityService`, `WeatherNotificationService` y `EvaluarViabilidadVueloServicio`. |
+| `infraestructura.persistencia` | `MySqlDronRepository` (implementa los puertos de persistencia con SQL) y `ConexionBD` (Singleton JDBC). |
+| `infraestructura.weather`      | Adaptadores y clientes Open-Meteo (`GeoApiClient`, `GeoApiAdapter`, `OpenWeatherClient`, `OpenWeatherAdapter`), sin API key. |
 | `infraestructura.ui`           | `MainController`: adaptador de entrada JavaFX.                                                       |
 | `vista`                        | `App`: punto de entrada; crea y conecta todas las piezas.                                           |
 
 La vista (`GestorDrones.fxml`) y la hoja de estilos están en
 `src/main/resources/co/edu/poli/sw2/`. El proyecto es modular: su
-`module-info.java` declara las dependencias de JavaFX y `java.sql`.
+`module-info.java` declara las dependencias de JavaFX, `java.sql` y `java.logging`.
 
 ### Decisiones de diseño
 
-- **Un puerto por operación.** Hay 5 interfaces de entrada y 5 de salida, en
-  vez de una sola interfaz con todo el CRUD.
-- **Un servicio por caso de uso.** Cada servicio recibe por constructor solo
-  los puertos de salida que usa.
-- **Cambiar de base de datos solo toca `App`.** Para otro motor bastaría con
-  escribir otro adaptador que implemente los mismos 5 puertos y cambiar la
-  línea donde se crea `MySqlDronRepository`.
-- **`App` es la raíz de composición.** Es la única clase que hace `new` de las
-  piezas del hexágono. Como `MainController` recibe los casos de uso por
-  constructor, `App` lo crea con `FXMLLoader.setControllerFactory(...)`.
-- **La tecnología no cruza hacia el núcleo.** `MySqlDronRepository` convierte
-  `SQLException` e `IOException` en `PersistenciaException`, que es unchecked
-  y está definida junto a los puertos de salida.
-- **Patrón de diseño: Singleton.** `ConexionBD` garantiza una única conexión
-  JDBC compartida por toda la aplicación.
-- **Las reglas de negocio viven en el núcleo, no en la interfaz.**
-  `Drone.validar()` exige ID, serial, modelo y fabricante, y un peso mayor
-  que 0; `Agricultura` añade que la capacidad del tanque sea mayor que 0.
-  `CrearDronServicio` y `ActualizarDronServicio` llaman a esa validación
-  antes de guardar, y `CrearDronServicio` además impide repetir un ID. Si una
-  regla no se cumple, el servicio lanza `IllegalArgumentException` y el
-  controlador solo muestra el mensaje.
+- **Un puerto por operación.** Interfaces dedicadas para CRUD, consulta de clima, suscripciones y evaluacion de viabilidad.
+- **Un servicio por caso de uso.** Cada servicio recibe por constructor solo los colaboradores que necesita.
+- **Patrones de diseño utilizados:**
+  - **Singleton:** `ConexionBD` para una conexion compartida a MySQL.
+  - **Observer:** `WeatherObserver` notifica a los drones suscritos sobre actualizaciones meteorologicas.
+  - **Chain of Responsibility:** `WeatherHandler` evalua secuencialmente temperatura, humedad, viento, presion y visibilidad para determinar la viabilidad del vuelo.
+- **Servicio meteorologico externo:** Open-Meteo (geocodificacion y pronostico) sin requerimiento de API key.
+- **Cambiar de infraestructura solo toca `App`.** Adaptadores reemplazables sin afectar el dominio ni los casos de uso.
+- **`App` es la raíz de composición.** Es la única clase que hace `new` de las piezas del hexágono.
+- **La tecnología no cruza hacia el núcleo.** Los repositorios y adaptadores capturan excepciones tecnicas y las traducen a excepciones de puerto.
+- **Las reglas de negocio viven en el núcleo, no en la interfaz.** Validaciones de entidades en el dominio y reglas de vuelo en la cadena de responsabilidad.
 
 ## Requisitos
 

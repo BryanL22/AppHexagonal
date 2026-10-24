@@ -1,51 +1,41 @@
 package co.edu.poli.sw2.infraestructura.weather;
 
-import co.edu.poli.sw2.aplicacion.puerto.salida.ConsultaClimaException;
+import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
+import com.fasterxml.jackson.databind.JsonNode;
 
-import java.io.IOException;
+/** Adapta la respuesta de geocodificacion al puerto de coordenadas de aplicacion. */
+public class GeoApiAdapter implements GeocodificarCiudadPort {
 
-/**
- * Adaptador sobre {@link GeoApiClient}: valida la ciudad y traduce los
- * errores tecnicos de la API de geocodificacion a {@link ConsultaClimaException}.
- */
-public class GeoApiAdapter {
-
-    /** Cliente HTTP de la API de geocodificacion. */
-    private final GeoApiClient client;
+    /** Cliente que ejecuta la solicitud HTTP externa. */
+    GeoApiClient client;
 
     /**
-     * Crea el adaptador con el cliente que usa.
+     * Crea el adaptador con el cliente HTTP de geocodificacion.
      *
-     * @param client cliente HTTP de la API de geocodificacion.
+     * @param client cliente de geocodificacion.
      */
     public GeoApiAdapter(GeoApiClient client) {
         this.client = client;
     }
 
-    /**
-     * Obtiene las coordenadas de una ciudad.
-     *
-     * @param city nombre de la ciudad.
-     * @return las coordenadas de la ciudad; nunca {@code null}.
-     * @throws IllegalArgumentException si el nombre de la ciudad esta vacio.
-     * @throws ConsultaClimaException si la ciudad no existe o la API falla.
-     */
-    public Coordinates getCoordinates(String city) {
-        if (city == null || city.isBlank()) {
-            throw new IllegalArgumentException("El nombre de la ciudad es obligatorio.");
+    /** {@inheritDoc} */
+    @Override
+    public Coordenadas buscarCoordenadas(String city) {
+        JsonNode respuesta = client.buscar(city);
+        if (respuesta == null || !respuesta.has("results") || !respuesta.get("results").isArray()
+                || respuesta.get("results").isEmpty()) {
+            throw new WeatherQueryException("No se encontro la ciudad '" + city + "'.");
         }
-
-        try {
-            Coordinates coordenadas = client.getCoordinates(city.trim());
-            if (coordenadas == null) {
-                throw new ConsultaClimaException("No se encontro la ciudad '" + city.trim() + "'.");
-            }
-            return coordenadas;
-        } catch (IOException e) {
-            throw new ConsultaClimaException("No se pudo consultar la ubicacion de la ciudad.", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ConsultaClimaException("Se interrumpio la consulta de la ubicacion.", e);
+        JsonNode primerResultado = respuesta.get("results").get(0);
+        JsonNode latitud = primerResultado.get("latitude");
+        JsonNode longitud = primerResultado.get("longitude");
+        if (latitud == null || !latitud.isNumber() || longitud == null || !longitud.isNumber()
+                || !Double.isFinite(latitud.asDouble()) || !Double.isFinite(longitud.asDouble())
+                || latitud.asDouble() < -90 || latitud.asDouble() > 90
+                || longitud.asDouble() < -180 || longitud.asDouble() > 180) {
+            throw new WeatherQueryException("Open-Meteo devolvio coordenadas invalidas para '" + city + "'.");
         }
+        return new Coordenadas(latitud.asDouble(), longitud.asDouble());
     }
 }

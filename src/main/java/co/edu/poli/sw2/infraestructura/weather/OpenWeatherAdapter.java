@@ -1,65 +1,116 @@
 package co.edu.poli.sw2.infraestructura.weather;
 
-import co.edu.poli.sw2.aplicacion.puerto.salida.ConsultaClimaException;
-import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.ConsultarClimaPorCiudadPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort;
+import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort.Coordenadas;
+import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
 import co.edu.poli.sw2.dominio.weather.Weather;
+import com.fasterxml.jackson.databind.JsonNode;
 
-import java.io.IOException;
+/** Coordina geocodificacion, consulta del clima y conversion al modelo de dominio. */
+public class OpenWeatherAdapter implements ConsultarClimaPorCiudadPort {
 
-/**
- * Adaptador de salida: implementa {@link WeatherPort} con las APIs de
- * Open-Meteo.
- *
- * <p>Hace las dos consultas en el orden que pide el enunciado: primero la
- * de geocodificacion (ciudad a coordenadas, via {@link GeoApiAdapter}) y
- * luego la de clima actual (via {@link OpenWeatherClient}). Con la respuesta
- * construye la entidad {@link Weather}; las unidades de la API ya coinciden
- * con las del dominio, asi que no hay conversiones.</p>
- */
-public class OpenWeatherAdapter implements WeatherPort {
-
-    /** Adaptador de la API de geocodificacion. */
-    private final GeoApiAdapter geoApiAdapter;
-
-    /** Cliente HTTP de la API de clima actual. */
-    private final OpenWeatherClient client;
+    /** Puerto que resuelve la ciudad a coordenadas. */
+    GeocodificarCiudadPort geocodificador;
+    /** Cliente del endpoint de clima actual. */
+    OpenWeatherClient client;
 
     /**
-     * Crea el adaptador con sus dependencias.
+     * Crea el adaptador con las dos dependencias externas necesarias.
      *
-     * @param geoApiAdapter adaptador que convierte la ciudad en coordenadas.
-     * @param client cliente HTTP de la API de clima actual.
+     * @param geocodificador puerto para resolver la ciudad.
+     * @param client cliente del clima actual.
      */
-    public OpenWeatherAdapter(GeoApiAdapter geoApiAdapter, OpenWeatherClient client) {
-        this.geoApiAdapter = geoApiAdapter;
+    public OpenWeatherAdapter(GeocodificarCiudadPort geocodificador, OpenWeatherClient client) {
+        this.geocodificador = geocodificador;
         this.client = client;
     }
 
-    /**
-     * Consulta el clima actual de una ciudad.
-     *
-     * @param city nombre de la ciudad.
-     * @return el clima con las unidades del dominio (C, %, km/h, hPa, m).
-     * @throws IllegalArgumentException si el nombre de la ciudad esta vacio.
-     * @throws ConsultaClimaException si la ciudad no existe o alguna API falla.
-     */
+    /** {@inheritDoc} */
     @Override
-    public Weather getWeather(String city) {
-        Coordinates coordenadas = geoApiAdapter.getCoordinates(city);
-
+    public Weather consultarClima(String city) {
+        Coordenadas coordenadas = geocodificador.buscarCoordenadas(city);
+        JsonNode respuesta = client.consultar(coordenadas.latitud(), coordenadas.longitud());
         try {
-            ApiResponse respuesta = client.getCurrentWeather(coordenadas.lat(), coordenadas.lon());
-            return new Weather(
-                    respuesta.temperature(),
-                    respuesta.humidity(),
-                    respuesta.windSpeed(),
-                    respuesta.pressure(),
-                    respuesta.visibility());
-        } catch (IOException e) {
-            throw new ConsultaClimaException("No se pudo consultar el clima de '" + coordenadas.name() + "'.", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ConsultaClimaException("Se interrumpio la consulta del clima.", e);
+            if (respuesta == null || !respuesta.isObject()) {
+                throw new IllegalArgumentException("La respuesta meteorologica no es un objeto JSON.");
+            }
+            JsonNode current = respuesta.get("current");
+            if (current == null || !current.isObject()) {
+                throw new IllegalArgumentException("La respuesta meteorologica no contiene datos actuales.");
+            }
+            double temperatura = numero(current, "temperature_2m");
+            double humedad = numero(current, "relative_humidity_2m");
+            double velocidadViento = numero(current, "wind_speed_10m");
+            double presion = numero(current, "pressure_msl");
+            double visibilidadMetros = extraerVisibilidad(respuesta, current);
+            double visibilidadKm = visibilidadMetros / 1000.0;
+            Weather weather = new Weather(temperatura, humedad, velocidadViento, presion, visibilidadKm);
+            weather.validar();
+            return weather;
+        } catch (IllegalArgumentException e) {
+            throw new WeatherQueryException("Open-Meteo devolvio datos meteorologicos invalidos.", e);
         }
+    }
+
+    /**
+     * Obtiene la visibilidad en metros desde current o desde la serie horaria.
+     *
+     * @param respuesta objeto JSON completo.
+     * @param current objeto JSON de las condiciones actuales.
+     * @return visibilidad en metros.
+     */
+    private double extraerVisibilidad(JsonNode respuesta, JsonNode current) {
+        JsonNode visNode = current.get("visibility");
+        if (visNode != null && visNode.isNumber() && Double.isFinite(visNode.asDouble())) {
+            return visNode.asDouble();
+        }
+        JsonNode hourly = respuesta.get("hourly");
+        if (hourly != null && hourly.isObject()) {
+            JsonNode timeArray = hourly.get("time");
+            JsonNode visArray = hourly.get("visibility");
+            if (timeArray != null && timeArray.isArray() && visArray != null && visArray.isArray()) {
+                String horaBuscada = "";
+                JsonNode currentTimeNode = current.get("time");
+                if (currentTimeNode != null && currentTimeNode.isTextual()) {
+                    String timeText = currentTimeNode.asText();
+                    int indexT = timeText.indexOf('T');
+                    if (indexT > 0 && timeText.length() >= indexT + 3) {
+                        horaBuscada = timeText.substring(0, indexT + 3) + ":00";
+                    }
+                }
+                int indice = -1;
+                for (int i = 0; i < timeArray.size(); i++) {
+                    if (timeArray.get(i).asText().equals(horaBuscada)) {
+                        indice = i;
+                        break;
+                    }
+                }
+                if (indice < 0 && !visArray.isEmpty()) {
+                    indice = 0;
+                }
+                if (indice >= 0 && indice < visArray.size()) {
+                    JsonNode valor = visArray.get(indice);
+                    if (valor != null && valor.isNumber() && Double.isFinite(valor.asDouble())) {
+                        return valor.asDouble();
+                    }
+                }
+            }
+        }
+        throw new IllegalArgumentException("No se encontro informacion valida de visibilidad.");
+    }
+
+    /** Extrae un numero obligatorio de una propiedad JSON.
+     *
+     * @param objeto objeto JSON que contiene el campo.
+     * @param campo nombre del campo requerido.
+     * @return valor numerico finito.
+     */
+    private double numero(JsonNode objeto, String campo) {
+        JsonNode valor = objeto == null ? null : objeto.get(campo);
+        if (valor == null || !valor.isNumber() || !Double.isFinite(valor.asDouble())) {
+            throw new IllegalArgumentException("Campo meteorologico invalido: " + campo);
+        }
+        return valor.asDouble();
     }
 }

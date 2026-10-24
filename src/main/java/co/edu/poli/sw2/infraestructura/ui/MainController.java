@@ -8,15 +8,23 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.GestionarSuscripcionesClimaUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
+import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
+import co.edu.poli.sw2.dominio.weather.Weather;
+import co.edu.poli.sw2.dominio.weather.chain.ViabilityResult;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -79,6 +87,24 @@ public class MainController {
     /** Casilla de deteccion termica; solo visible para vigilancia. */
     @FXML
     private CheckBox chkDeteccionTermica;
+    /** Campo de ciudad para consultar el clima. */
+    @FXML
+    public TextField txtCiudadClima;
+    /** Resultado o estado de la consulta meteorologica. */
+    @FXML
+    public Label lblClima;
+    /** Etiqueta que muestra el resultado de viabilidad de vuelo. */
+    @FXML
+    public Label lblViabilidad;
+    /** Boton que se deshabilita durante la consulta HTTP. */
+    @FXML
+    public Button btnConsultarClima;
+    /** Campo del identificador para administrar suscripciones. */
+    @FXML
+    public TextField txtIdSuscripcion;
+    /** Lista visible de identificadores suscritos. */
+    @FXML
+    public Label lblSuscripciones;
 
     /** Tabla con los drones consultados. */
     @FXML
@@ -115,26 +141,40 @@ public class MainController {
     private final ActualizarDronUseCase actualizarDron;
     /** Caso de uso para eliminar drones. */
     private final EliminarDronUseCase eliminarDron;
+    /** Caso de uso para consultar clima y disparar notificaciones. */
+    public GetWeatherByCityUseCase consultarClima;
+    /** Puerto de entrada para administrar suscripciones. */
+    public GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima;
+    /** Caso de uso para evaluar la viabilidad de vuelo con el clima. */
+    public EvaluarViabilidadVueloUseCase evaluarViabilidad;
     /** Lista observable enlazada a {@link #tablaDrones}. */
     private final ObservableList<Drone> drones = FXCollections.observableArrayList();
 
     /**
-     * Crea el controlador con los cinco casos de uso que puede disparar.
+     * Crea el controlador con los casos de uso que puede disparar.
      *
      * @param crearDron caso de uso de registro.
      * @param consultarDron caso de uso de consulta por identificador.
      * @param consultarDrones caso de uso de listado.
      * @param actualizarDron caso de uso de actualizacion.
      * @param eliminarDron caso de uso de eliminacion.
+     * @param consultarClima caso de uso de consulta meteorologica.
+     * @param gestionarSuscripcionesClima puerto para administrar suscripciones.
+     * @param evaluarViabilidad caso de uso para evaluar viabilidad de vuelo.
      */
     public MainController(CrearDronUseCase crearDron, ConsultarDronUseCase consultarDron,
             ConsultarDronesUseCase consultarDrones, ActualizarDronUseCase actualizarDron,
-            EliminarDronUseCase eliminarDron) {
+            EliminarDronUseCase eliminarDron, GetWeatherByCityUseCase consultarClima,
+            GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima,
+            EvaluarViabilidadVueloUseCase evaluarViabilidad) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
         this.actualizarDron = actualizarDron;
         this.eliminarDron = eliminarDron;
+        this.consultarClima = consultarClima;
+        this.gestionarSuscripcionesClima = gestionarSuscripcionesClima;
+        this.evaluarViabilidad = evaluarViabilidad;
     }
 
     /**
@@ -287,6 +327,123 @@ public class MainController {
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }
+    }
+
+    /**
+     * Consulta el clima en segundo plano para no bloquear el hilo de JavaFX.
+     *
+     * @param event evento del boton.
+     */
+    @FXML
+    private void onConsultarClima(ActionEvent event) {
+        String city = txtCiudadClima.getText();
+        if (city == null || city.isBlank()) {
+            mostrarAlerta(AlertType.WARNING, "Escribe una ciudad para consultar el clima.");
+            return;
+        }
+
+        btnConsultarClima.setDisable(true);
+        lblClima.setText("Consultando...");
+        lblViabilidad.setText("");
+        lblViabilidad.getStyleClass().removeAll("clima-apto", "clima-no-apto");
+
+        record ResultadoClima(Weather weather, ViabilityResult viabilidad) {}
+
+        Task<ResultadoClima> task = new Task<>() {
+            @Override
+            protected ResultadoClima call() {
+                Weather weather = consultarClima.consultar(city.trim());
+                ViabilityResult viabilidad = evaluarViabilidad.evaluar(weather);
+                return new ResultadoClima(weather, viabilidad);
+            }
+        };
+        task.setOnSucceeded(evento -> {
+            btnConsultarClima.setDisable(false);
+            ResultadoClima resultado = task.getValue();
+            Weather weather = resultado.weather();
+            ViabilityResult viabilidad = resultado.viabilidad();
+            lblClima.setText(String.format("Temp: %.1f C | Humedad: %.0f%% | Viento: %.1f km/h | "
+                    + "Presion: %.0f hPa | Visibilidad: %.1f km", weather.temperature,
+                    weather.humidity, weather.windSpeed, weather.pressure, weather.visibility));
+            lblViabilidad.setText(viabilidad.message());
+            lblViabilidad.getStyleClass().removeAll("clima-apto", "clima-no-apto");
+            if (viabilidad.isApto()) {
+                lblViabilidad.getStyleClass().add("clima-apto");
+            } else {
+                lblViabilidad.getStyleClass().add("clima-no-apto");
+            }
+        });
+        task.setOnFailed(evento -> {
+            btnConsultarClima.setDisable(false);
+            Throwable error = task.getException();
+            String mensaje = error instanceof WeatherQueryException || error instanceof IllegalArgumentException
+                    ? error.getMessage() : "No fue posible consultar el clima.";
+            lblClima.setText("Consulta fallida");
+            lblViabilidad.setText("");
+            lblViabilidad.getStyleClass().removeAll("clima-apto", "clima-no-apto");
+            mostrarAlerta(AlertType.ERROR, mensaje);
+        });
+        Thread hilo = new Thread(task, "consulta-openweather");
+        hilo.setDaemon(true);
+        hilo.start();
+    }
+
+    /**
+     * Suscribe el dron actualmente seleccionado.
+     *
+     * @param event evento del boton.
+     */
+    @FXML
+    private void onSuscribirClima(ActionEvent event) {
+        String droneId = txtIdSuscripcion.getText();
+        if (droneId == null || droneId.isBlank()) {
+            mostrarAlerta(AlertType.WARNING, "Escribe el ID del dron que quieres suscribir.");
+            return;
+        }
+        try {
+            gestionarSuscripcionesClima.suscribir(droneId.trim());
+            mostrarSuscripcionesClima();
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
+        } catch (PersistenciaException e) {
+            mostrarAlerta(AlertType.ERROR, e.getMessage());
+        }
+    }
+
+    /**
+     * Elimina la suscripcion del dron actualmente seleccionado.
+     *
+     * @param event evento del boton.
+     */
+    @FXML
+    private void onDesuscribirClima(ActionEvent event) {
+        String droneId = txtIdSuscripcion.getText();
+        if (droneId == null || droneId.isBlank()) {
+            mostrarAlerta(AlertType.WARNING, "Escribe el ID del dron que quieres desuscribir.");
+            return;
+        }
+        try {
+            gestionarSuscripcionesClima.desuscribir(droneId.trim());
+            mostrarSuscripcionesClima();
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
+        }
+    }
+
+    /**
+     * Actualiza en pantalla la lista de drones suscritos.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onVerSuscripcionesClima(ActionEvent event) {
+        mostrarSuscripcionesClima();
+    }
+
+    /** Presenta los identificadores actualmente registrados en Observer. */
+    private void mostrarSuscripcionesClima() {
+        java.util.List<String> ids = gestionarSuscripcionesClima.listarSuscritos();
+        lblSuscripciones.setText(ids.isEmpty() ? "Sin drones suscritos" : String.join(", ", ids));
     }
 
     /**
