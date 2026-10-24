@@ -8,11 +8,13 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GestionarSuscripcionesClimaUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
 import co.edu.poli.sw2.dominio.weather.Weather;
+import co.edu.poli.sw2.dominio.weather.chain.ViabilityResult;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -91,6 +93,9 @@ public class MainController {
     /** Resultado o estado de la consulta meteorologica. */
     @FXML
     public Label lblClima;
+    /** Etiqueta que muestra el resultado de viabilidad de vuelo. */
+    @FXML
+    public Label lblViabilidad;
     /** Boton que se deshabilita durante la consulta HTTP. */
     @FXML
     public Button btnConsultarClima;
@@ -140,24 +145,28 @@ public class MainController {
     public GetWeatherByCityUseCase consultarClima;
     /** Puerto de entrada para administrar suscripciones. */
     public GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima;
+    /** Caso de uso para evaluar la viabilidad de vuelo con el clima. */
+    public EvaluarViabilidadVueloUseCase evaluarViabilidad;
     /** Lista observable enlazada a {@link #tablaDrones}. */
     private final ObservableList<Drone> drones = FXCollections.observableArrayList();
 
     /**
-     * Crea el controlador con los cinco casos de uso que puede disparar.
+     * Crea el controlador con los casos de uso que puede disparar.
      *
      * @param crearDron caso de uso de registro.
      * @param consultarDron caso de uso de consulta por identificador.
      * @param consultarDrones caso de uso de listado.
      * @param actualizarDron caso de uso de actualizacion.
      * @param eliminarDron caso de uso de eliminacion.
-    * @param consultarClima caso de uso de consulta meteorologica.
-    * @param gestionarSuscripcionesClima puerto para administrar suscripciones.
+     * @param consultarClima caso de uso de consulta meteorologica.
+     * @param gestionarSuscripcionesClima puerto para administrar suscripciones.
+     * @param evaluarViabilidad caso de uso para evaluar viabilidad de vuelo.
      */
     public MainController(CrearDronUseCase crearDron, ConsultarDronUseCase consultarDron,
             ConsultarDronesUseCase consultarDrones, ActualizarDronUseCase actualizarDron,
             EliminarDronUseCase eliminarDron, GetWeatherByCityUseCase consultarClima,
-            GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima) {
+            GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima,
+            EvaluarViabilidadVueloUseCase evaluarViabilidad) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
@@ -165,6 +174,7 @@ public class MainController {
         this.eliminarDron = eliminarDron;
         this.consultarClima = consultarClima;
         this.gestionarSuscripcionesClima = gestionarSuscripcionesClima;
+        this.evaluarViabilidad = evaluarViabilidad;
     }
 
     /**
@@ -334,18 +344,34 @@ public class MainController {
 
         btnConsultarClima.setDisable(true);
         lblClima.setText("Consultando...");
-        Task<Weather> task = new Task<>() {
+        lblViabilidad.setText("");
+        lblViabilidad.getStyleClass().removeAll("clima-apto", "clima-no-apto");
+
+        record ResultadoClima(Weather weather, ViabilityResult viabilidad) {}
+
+        Task<ResultadoClima> task = new Task<>() {
             @Override
-            protected Weather call() {
-                return consultarClima.consultar(city.trim());
+            protected ResultadoClima call() {
+                Weather weather = consultarClima.consultar(city.trim());
+                ViabilityResult viabilidad = evaluarViabilidad.evaluar(weather);
+                return new ResultadoClima(weather, viabilidad);
             }
         };
         task.setOnSucceeded(evento -> {
             btnConsultarClima.setDisable(false);
-            Weather weather = task.getValue();
-            lblClima.setText(String.format("Temp: %.1f C | Humedad: %.0f%% | Viento: %.1f m/s | "
-                    + "Presion: %.0f hPa | Visibilidad: %.0f m", weather.temperature,
+            ResultadoClima resultado = task.getValue();
+            Weather weather = resultado.weather();
+            ViabilityResult viabilidad = resultado.viabilidad();
+            lblClima.setText(String.format("Temp: %.1f C | Humedad: %.0f%% | Viento: %.1f km/h | "
+                    + "Presion: %.0f hPa | Visibilidad: %.1f km", weather.temperature,
                     weather.humidity, weather.windSpeed, weather.pressure, weather.visibility));
+            lblViabilidad.setText(viabilidad.message());
+            lblViabilidad.getStyleClass().removeAll("clima-apto", "clima-no-apto");
+            if (viabilidad.isApto()) {
+                lblViabilidad.getStyleClass().add("clima-apto");
+            } else {
+                lblViabilidad.getStyleClass().add("clima-no-apto");
+            }
         });
         task.setOnFailed(evento -> {
             btnConsultarClima.setDisable(false);
@@ -353,6 +379,8 @@ public class MainController {
             String mensaje = error instanceof WeatherQueryException || error instanceof IllegalArgumentException
                     ? error.getMessage() : "No fue posible consultar el clima.";
             lblClima.setText("Consulta fallida");
+            lblViabilidad.setText("");
+            lblViabilidad.getStyleClass().removeAll("clima-apto", "clima-no-apto");
             mostrarAlerta(AlertType.ERROR, mensaje);
         });
         Thread hilo = new Thread(task, "consulta-openweather");
@@ -402,7 +430,11 @@ public class MainController {
         }
     }
 
-    /** Actualiza en pantalla la lista de drones suscritos. */
+    /**
+     * Actualiza en pantalla la lista de drones suscritos.
+     *
+     * @param event evento del boton (no se usa).
+     */
     @FXML
     private void onVerSuscripcionesClima(ActionEvent event) {
         mostrarSuscripcionesClima();

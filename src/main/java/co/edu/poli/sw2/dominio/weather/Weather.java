@@ -1,8 +1,8 @@
 package co.edu.poli.sw2.dominio.weather;
 
 /**
- * Datos meteorologicos actuales. Temperatura en grados Celsius, viento en m/s,
- * humedad en porcentaje, presion en hPa y visibilidad en metros.
+ * Datos meteorologicos actuales. Temperatura en grados Celsius, viento en km/h,
+ * humedad en porcentaje, presion en hPa y visibilidad en kilometros.
  */
 public class Weather {
 
@@ -10,11 +10,11 @@ public class Weather {
     public double temperature;
     /** Humedad relativa en porcentaje. */
     public double humidity;
-    /** Velocidad del viento en metros por segundo. */
+    /** Velocidad del viento en kilometros por hora. */
     public double windSpeed;
     /** Presion atmosferica en hectopascales. */
     public double pressure;
-    /** Visibilidad en metros. */
+    /** Visibilidad en kilometros. */
     public double visibility;
 
     /**
@@ -22,9 +22,9 @@ public class Weather {
      *
      * @param temperature temperatura en grados Celsius.
      * @param humidity humedad relativa en porcentaje.
-     * @param windSpeed velocidad del viento en metros por segundo.
+     * @param windSpeed velocidad del viento en kilometros por hora.
      * @param pressure presion atmosferica en hectopascales.
-     * @param visibility visibilidad en metros.
+     * @param visibility visibilidad en kilometros.
      */
     public Weather(double temperature, double humidity, double windSpeed,
             double pressure, double visibility) {

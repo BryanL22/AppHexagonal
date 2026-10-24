@@ -16,7 +16,7 @@ class WeatherObserverTest {
         WeatherObserver observer = new WeatherObserver();
         DroneDePrueba drone = new DroneDePrueba();
         DroneDePrueba segundoDrone = new DroneDePrueba();
-        Weather weather = new Weather(21.5, 68, 4.2, 1013, 10000);
+        Weather weather = new Weather(21.5, 68, 4.2, 1013, 10);
 
         observer.suscribir(drone);
         observer.suscribir(drone);
@@ -30,7 +30,7 @@ class WeatherObserverTest {
         assertEquals(68, drone.ultimaActualizacion.humidity);
         assertEquals(4.2, drone.ultimaActualizacion.windSpeed);
         assertEquals(1013, drone.ultimaActualizacion.pressure);
-        assertEquals(10000, drone.ultimaActualizacion.visibility);
+        assertEquals(10, drone.ultimaActualizacion.visibility);
     }
 
     @Test
@@ -40,7 +40,7 @@ class WeatherObserverTest {
         observer.suscribir(drone);
         observer.desuscribir(drone.getId());
 
-        observer.notificar(new Weather(20, 50, 3, 1000, 9000));
+        observer.notificar(new Weather(20, 50, 3, 1000, 9));
 
         assertEquals(0, drone.notificaciones);
         assertNull(drone.ultimaActualizacion);
@@ -53,7 +53,7 @@ class WeatherObserverTest {
         DroneDePrueba drone = new DroneDePrueba();
         observer.suscribir(suscrito);
 
-        observer.notificar(new Weather(20, 50, 3, 1000, 9000));
+        observer.notificar(new Weather(20, 50, 3, 1000, 9));
 
         assertEquals(1, suscrito.notificaciones);
         assertEquals(0, drone.notificaciones);

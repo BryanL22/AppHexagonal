@@ -13,7 +13,7 @@ public class GeoApiAdapter implements GeocodificarCiudadPort {
     /**
      * Crea el adaptador con el cliente HTTP de geocodificacion.
      *
-     * @param client cliente de OpenWeather Geo API.
+     * @param client cliente de geocodificacion.
      */
     public GeoApiAdapter(GeoApiClient client) {
         this.client = client;
@@ -23,17 +23,18 @@ public class GeoApiAdapter implements GeocodificarCiudadPort {
     @Override
     public Coordenadas buscarCoordenadas(String city) {
         JsonNode respuesta = client.buscar(city);
-        if (respuesta == null || !respuesta.isArray() || respuesta.isEmpty()) {
+        if (respuesta == null || !respuesta.has("results") || !respuesta.get("results").isArray()
+                || respuesta.get("results").isEmpty()) {
             throw new WeatherQueryException("No se encontro la ciudad '" + city + "'.");
         }
-        JsonNode primerResultado = respuesta.get(0);
-        JsonNode latitud = primerResultado.get("lat");
-        JsonNode longitud = primerResultado.get("lon");
+        JsonNode primerResultado = respuesta.get("results").get(0);
+        JsonNode latitud = primerResultado.get("latitude");
+        JsonNode longitud = primerResultado.get("longitude");
         if (latitud == null || !latitud.isNumber() || longitud == null || !longitud.isNumber()
-            || !Double.isFinite(latitud.asDouble()) || !Double.isFinite(longitud.asDouble())
-            || latitud.asDouble() < -90 || latitud.asDouble() > 90
-            || longitud.asDouble() < -180 || longitud.asDouble() > 180) {
-            throw new WeatherQueryException("OpenWeather devolvio coordenadas invalidas para '" + city + "'.");
+                || !Double.isFinite(latitud.asDouble()) || !Double.isFinite(longitud.asDouble())
+                || latitud.asDouble() < -90 || latitud.asDouble() > 90
+                || longitud.asDouble() < -180 || longitud.asDouble() > 180) {
+            throw new WeatherQueryException("Open-Meteo devolvio coordenadas invalidas para '" + city + "'.");
         }
         return new Coordenadas(latitud.asDouble(), longitud.asDouble());
     }

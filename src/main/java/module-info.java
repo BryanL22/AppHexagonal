@@ -12,6 +12,7 @@ module co.edu.poli.sw2 {
     // El driver de MySQL no se declara: DriverManager lo encuentra solo.
     requires java.sql;
     requires java.net.http;
+    requires java.logging;
     requires com.fasterxml.jackson.databind;
 
     // ── Apertura al framework JavaFX ─────────────────────────────────────

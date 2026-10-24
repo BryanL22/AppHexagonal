@@ -13,13 +13,11 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
-/** Cliente HTTP del endpoint de clima actual de OpenWeather. */
+/** Cliente HTTP del endpoint de pronostico de Open-Meteo. */
 public class OpenWeatherClient {
 
-    /** Endpoint oficial de clima actual de OpenWeather. */
-    static final String ENDPOINT = "https://api.openweathermap.org/data/2.5/weather";
-    /** Clave recibida desde la configuracion de la aplicacion. */
-    String apiKey;
+    /** Endpoint oficial de clima de Open-Meteo. */
+    static final String ENDPOINT = "https://api.open-meteo.com/v1/forecast";
     /** Cliente HTTP con limite de conexion. */
     HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
@@ -27,27 +25,22 @@ public class OpenWeatherClient {
     ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Crea el cliente con la clave configurada externamente.
-     *
-     * @param apiKey clave de OpenWeather.
+     * Crea el cliente meteorologico.
      */
-    public OpenWeatherClient(String apiKey) {
-        this.apiKey = apiKey;
+    public OpenWeatherClient() {
     }
 
     /**
-     * Consulta el clima usando coordenadas; metric entrega temperatura Celsius y viento m/s.
+     * Consulta el clima usando coordenadas; Open-Meteo entrega temperatura Celsius y viento km/h.
      *
      * @param latitud latitud de la ciudad.
      * @param longitud longitud de la ciudad.
      * @return respuesta JSON del clima actual.
      */
     public JsonNode consultar(double latitud, double longitud) {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new WeatherQueryException("Configura la variable de entorno OPENWEATHER_API_KEY.");
-        }
-        String query = "?lat=" + latitud + "&lon=" + longitud + "&units=metric&appid="
-                + URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
+        String query = String.format(java.util.Locale.ROOT,
+                "?latitude=%.5f&longitude=%.5f&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl,visibility&hourly=visibility&forecast_days=1&timezone=auto",
+                latitud, longitud);
         HttpRequest request = HttpRequest.newBuilder(URI.create(ENDPOINT + query))
                 .timeout(Duration.ofSeconds(15))
                 .header("Accept", "application/json")
@@ -55,18 +48,18 @@ public class OpenWeatherClient {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
-                throw new WeatherQueryException("OpenWeather rechazo la consulta del clima (HTTP "
+                throw new WeatherQueryException("Open-Meteo rechazo la consulta del clima (HTTP "
                         + response.statusCode() + ").");
             }
             if (response.body() == null || response.body().isBlank()) {
-                throw new WeatherQueryException("OpenWeather devolvio una respuesta vacia del clima.");
+                throw new WeatherQueryException("Open-Meteo devolvio una respuesta vacia del clima.");
             }
             return objectMapper.readTree(response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new WeatherQueryException("La consulta meteorologica fue interrumpida.", e);
         } catch (IOException | IllegalArgumentException e) {
-            throw new WeatherQueryException("No se pudo consultar el clima en OpenWeather.", e);
+            throw new WeatherQueryException("No se pudo consultar el clima en Open-Meteo.", e);
         }
     }
 }

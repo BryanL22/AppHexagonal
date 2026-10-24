@@ -13,13 +13,11 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
-/** Cliente HTTP de la API oficial de geocodificacion de OpenWeather. */
+/** Cliente HTTP de la API de geocodificacion de Open-Meteo. */
 public class GeoApiClient {
 
-    /** Endpoint oficial de geocodificacion directa de OpenWeather. */
-    static final String ENDPOINT = "https://api.openweathermap.org/geo/1.0/direct";
-    /** Clave recibida desde la configuracion de la aplicacion. */
-    String apiKey;
+    /** Endpoint oficial de geocodificacion directa de Open-Meteo. */
+    static final String ENDPOINT = "https://geocoding-api.open-meteo.com/v1/search";
     /** Cliente HTTP con limite de conexion. */
     HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
@@ -27,12 +25,9 @@ public class GeoApiClient {
     ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Crea el cliente con la clave configurada externamente.
-     *
-     * @param apiKey clave de OpenWeather.
+     * Crea el cliente de geocodificacion.
      */
-    public GeoApiClient(String apiKey) {
-        this.apiKey = apiKey;
+    public GeoApiClient() {
     }
 
     /**
@@ -42,7 +37,7 @@ public class GeoApiClient {
      * @return respuesta JSON de geocodificacion.
      */
     public JsonNode buscar(String city) {
-        String query = "?q=" + codificar(city) + "&limit=1&appid=" + codificar(exigirClave());
+        String query = "?name=" + codificar(city.trim()) + "&count=1&language=es&format=json";
         return solicitar(ENDPOINT + query);
     }
 
@@ -59,30 +54,19 @@ public class GeoApiClient {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
-                throw new WeatherQueryException("OpenWeather rechazo la geocodificacion (HTTP "
+                throw new WeatherQueryException("Open-Meteo rechazo la geocodificacion (HTTP "
                         + response.statusCode() + ").");
             }
             if (response.body() == null || response.body().isBlank()) {
-                throw new WeatherQueryException("OpenWeather devolvio una respuesta vacia de geocodificacion.");
+                throw new WeatherQueryException("Open-Meteo devolvio una respuesta vacia de geocodificacion.");
             }
             return objectMapper.readTree(response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new WeatherQueryException("La consulta de geocodificacion fue interrumpida.", e);
         } catch (IOException | IllegalArgumentException e) {
-            throw new WeatherQueryException("No se pudo consultar la geocodificacion de OpenWeather.", e);
+            throw new WeatherQueryException("No se pudo consultar la geocodificacion de Open-Meteo.", e);
         }
-    }
-
-    /** Comprueba que la clave externa este configurada.
-     *
-     * @return clave de OpenWeather.
-     */
-    private String exigirClave() {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new WeatherQueryException("Configura la variable de entorno OPENWEATHER_API_KEY.");
-        }
-        return apiKey;
     }
 
     /** Codifica un parametro de consulta para una URL.

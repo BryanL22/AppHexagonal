@@ -16,17 +16,24 @@ Cuatro paquetes bajo `co.edu.poli.sw2`:
 ```
 dominio/
   modelo/            Drone, Agricultura, Vigilancia, Mision, Piloto, Sensor
+  weather/           Weather, WeatherObserver
+  weather/chain/     WeatherHandler, TemperatureHandler, HumidityHandler,
+                     WindHandler, PressureHandler, VisibilityHandler, ViabilityResult
 aplicacion/
-  puerto/entrada/    5 interfaces: CrearDron, ConsultarDron, ConsultarDrones,
-                     ActualizarDron, EliminarDron  (sufijo UseCase)
-  puerto/salida/     5 interfaces: GuardarDron, BuscarDron, BuscarDrones,
-                     ActualizarDron, EliminarDron  (sufijo Port)
-                     + PersistenciaException
-  servicio/          Un servicio por caso de uso (CrearDronServicio, ...);
-                     cada uno recibe solo los puertos de salida que usa
+  puerto/entrada/    CrearDron, ConsultarDron, ConsultarDrones, ActualizarDron,
+                     EliminarDron, GetWeatherByCity, GestionarSuscripcionesClima,
+                     EvaluarViabilidadVuelo (sufijo UseCase)
+  puerto/salida/     GuardarDron, BuscarDron, BuscarDrones, ActualizarDron,
+                     EliminarDron, ConsultarClimaPorCiudad, GeocodificarCiudad (sufijo Port)
+                     + PersistenciaException, WeatherQueryException
+  servicio/          CrearDronServicio, ConsultarDronServicio, ConsultarDronesServicio,
+                     ActualizarDronServicio, EliminarDronServicio, GetWeatherByCityService,
+                     WeatherNotificationService, EvaluarViabilidadVueloServicio
 infraestructura/
   persistencia/      ConexionBD (Singleton) y MySqlDronRepository
-                     (implementa los 5 puertos de salida; contiene el SQL)
+                     (implementa los puertos de persistencia con SQL)
+  weather/           GeoApiClient, GeoApiAdapter, OpenWeatherClient, OpenWeatherAdapter
+                     (Open-Meteo, sin API key)
   ui/                MainController — adaptador de entrada
 vista/
   App.java           punto de entrada; conecta todo el hexágono
@@ -48,9 +55,7 @@ Tests en `src/test/java/co/edu/poli/sw2/tests/unitaria`.
    vista y dispara casos de uso. No conoce el repositorio, ni `SQLException`, ni SQL.
 4. **`App` es el único lugar que instancia dependencias** (composition root).
    Ninguna otra clase hace `new` de sus colaboradores.
-5. **El único patrón de diseño es el Singleton** (`ConexionBD`). El profesor solo
-   pide ese; los demás se eliminaron a propósito. No reintroducir factorías,
-   Builder, Prototype, Decorator, Bridge, Adapter, Composite, Facade ni Proxy.
+5. **Los únicos patrones de diseño permitidos son Singleton (`ConexionBD`), Observer (`WeatherObserver` y `Drone`) y Chain of Responsibility (`WeatherHandler` y sus eslabones)**. El resto sigue prohibido: no reintroducir factorías, Builder, Prototype, Decorator, Bridge, Adapter (como patrón GoF tradicional), Composite, Facade ni Proxy.
 
 ### Detalles que sorprenden
 
