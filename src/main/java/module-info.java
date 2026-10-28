@@ -25,6 +25,9 @@ module co.edu.poli.sw2 {
     // dominio: la tabla lee los getters de Drone con PropertyValueFactory
     opens co.edu.poli.sw2.dominio.modelo to javafx.base;
 
+    // command: el paquete del patron Command necesita ser accesible
+    opens co.edu.poli.sw2.dominio.command;
+
     // ── Exportaciones ────────────────────────────────────────────────────
     exports co.edu.poli.sw2.vista;
 }

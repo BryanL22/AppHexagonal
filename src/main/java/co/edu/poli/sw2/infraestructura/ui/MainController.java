@@ -13,6 +13,11 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.GestionarSuscripcionesClimaUseC
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
+import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
+import co.edu.poli.sw2.aplicacion.servicio.ProgramadorTareas;
+import co.edu.poli.sw2.dominio.command.EscanearZonaCommand;
+import co.edu.poli.sw2.dominio.command.MedirTemperaturaCommand;
+import co.edu.poli.sw2.dominio.command.TomarFotografiaCommand;
 import co.edu.poli.sw2.dominio.weather.Weather;
 import co.edu.poli.sw2.dominio.weather.chain.ViabilityResult;
 
@@ -28,6 +33,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -106,6 +112,28 @@ public class MainController {
     @FXML
     public Label lblSuscripciones;
 
+    /** Selector del dron sobre el que se ejecutara una operacion. */
+    @FXML
+    private ComboBox<String> cbDronOperacion;
+    /** Casilla para seleccionar el comando de tomar fotografia. */
+    @FXML
+    private CheckBox chkTomarFoto;
+    /** Casilla para seleccionar el comando de escanear zona. */
+    @FXML
+    private CheckBox chkEscanearZona;
+    /** Casilla para seleccionar el comando de medir temperatura. */
+    @FXML
+    private CheckBox chkMedirTemperatura;
+    /** Etiqueta que muestra el resultado de la operacion ejecutada. */
+    @FXML
+    private Label lblResultadoOperacion;
+    /** Etiqueta de titulo del historial de operaciones por dron. */
+    @FXML
+    private Label lblTituloHistorial;
+    /** Lista que muestra el historial de operaciones ejecutadas con los comandos. */
+    @FXML
+    private ListView<String> lvHistorialOperaciones;
+
     /** Tabla con los drones consultados. */
     @FXML
     private TableView<Drone> tablaDrones;
@@ -147,6 +175,10 @@ public class MainController {
     public GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima;
     /** Caso de uso para evaluar la viabilidad de vuelo con el clima. */
     public EvaluarViabilidadVueloUseCase evaluarViabilidad;
+    /** Invoker del patron Command: programa y ejecuta operaciones. */
+    private final ProgramadorTareas programadorTareas;
+    /** Wrapper que implementa las operaciones del dron. */
+    private final DroneOperacionService droneOperacionService;
     /** Lista observable enlazada a {@link #tablaDrones}. */
     private final ObservableList<Drone> drones = FXCollections.observableArrayList();
 
@@ -166,7 +198,9 @@ public class MainController {
             ConsultarDronesUseCase consultarDrones, ActualizarDronUseCase actualizarDron,
             EliminarDronUseCase eliminarDron, GetWeatherByCityUseCase consultarClima,
             GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima,
-            EvaluarViabilidadVueloUseCase evaluarViabilidad) {
+            EvaluarViabilidadVueloUseCase evaluarViabilidad,
+            ProgramadorTareas programadorTareas,
+            DroneOperacionService droneOperacionService) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
@@ -175,6 +209,8 @@ public class MainController {
         this.consultarClima = consultarClima;
         this.gestionarSuscripcionesClima = gestionarSuscripcionesClima;
         this.evaluarViabilidad = evaluarViabilidad;
+        this.programadorTareas = programadorTareas;
+        this.droneOperacionService = droneOperacionService;
     }
 
     /**
@@ -202,10 +238,17 @@ public class MainController {
                 .addListener((observable, anterior, seleccionado) -> {
                     if (seleccionado != null) {
                         llenarFormulario(seleccionado);
+                        cbDronOperacion.setValue(seleccionado.getId());
                     }
                 });
 
+        cbDronOperacion.getSelectionModel().selectedItemProperty()
+                .addListener((observable, anterior, seleccionado) -> {
+                    actualizarHistorialVista(seleccionado);
+                });
+
         cargarDrones();
+        actualizarComboDrones();
     }
 
     /**
@@ -440,6 +483,91 @@ public class MainController {
         mostrarSuscripcionesClima();
     }
 
+    /**
+     * Boton "Confirmar y Ejecutar Comandos": revisa que casillas fueron seleccionadas,
+     * programa los comandos en el invoker y los ejecuta en bloque.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onEjecutarComandos(ActionEvent event) {
+        if (!validarSeleccionDron()) return;
+
+        programadorTareas.limpiarTareas();
+
+        if (chkTomarFoto != null && chkTomarFoto.isSelected()) {
+            programadorTareas.agregarTarea(new TomarFotografiaCommand(droneOperacionService));
+        }
+        if (chkEscanearZona != null && chkEscanearZona.isSelected()) {
+            programadorTareas.agregarTarea(new EscanearZonaCommand(droneOperacionService));
+        }
+        if (chkMedirTemperatura != null && chkMedirTemperatura.isSelected()) {
+            programadorTareas.agregarTarea(new MedirTemperaturaCommand(droneOperacionService));
+        }
+
+        String dronId = cbDronOperacion.getValue();
+        java.util.List<String> resultados = programadorTareas.ejecutarTareasParaDron(dronId);
+
+        if (resultados.isEmpty()) {
+            lblResultadoOperacion.setText("No se selecciono ninguna operacion para ejecutar.");
+            mostrarAlerta(AlertType.WARNING, "Debes seleccionar al menos una operacion para ejecutar.");
+            return;
+        }
+
+        actualizarHistorialVista(dronId);
+        lblResultadoOperacion.setText("Se ejecutaron " + resultados.size() + " comando(s) para el dron [" + dronId + "].");
+    }
+
+    /**
+     * Actualiza la lista del historial mostrando unicamente las tareas del dron seleccionado.
+     *
+     * @param dronId identificador del dron elegido.
+     */
+    private void actualizarHistorialVista(String dronId) {
+        if (lvHistorialOperaciones == null) return;
+        lvHistorialOperaciones.getItems().clear();
+
+        if (dronId == null || dronId.isBlank()) {
+            if (lblTituloHistorial != null) {
+                lblTituloHistorial.setText("Historial de Operaciones del Dron:");
+            }
+            return;
+        }
+
+        if (lblTituloHistorial != null) {
+            lblTituloHistorial.setText("Historial de Operaciones: [" + dronId + "]");
+        }
+
+        java.util.List<String> tareasDron = programadorTareas.obtenerHistorialDeDron(dronId);
+        for (int i = tareasDron.size() - 1; i >= 0; i--) {
+            lvHistorialOperaciones.getItems().add(tareasDron.get(i));
+        }
+    }
+
+    /**
+     * Verifica que el usuario haya seleccionado un dron en el ComboBox.
+     *
+     * @return {@code true} si hay un dron seleccionado.
+     */
+    private boolean validarSeleccionDron() {
+        if (cbDronOperacion.getValue() == null) {
+            mostrarAlerta(AlertType.WARNING, "Selecciona un dron para ejecutar la operacion.");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Actualiza el ComboBox de operaciones con los IDs de los drones de la tabla.
+     */
+    private void actualizarComboDrones() {
+        ObservableList<String> ids = FXCollections.observableArrayList();
+        for (Drone d : drones) {
+            ids.add(d.getId());
+        }
+        cbDronOperacion.setItems(ids);
+    }
+
     /** Presenta los identificadores actualmente registrados en Observer. */
     private void mostrarSuscripcionesClima() {
         java.util.List<String> ids = gestionarSuscripcionesClima.listarSuscritos();
@@ -493,6 +621,7 @@ public class MainController {
     private void cargarDrones() {
         try {
             drones.setAll(consultarDrones.consultarTodos());
+            actualizarComboDrones();
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }

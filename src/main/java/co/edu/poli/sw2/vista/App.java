@@ -12,9 +12,11 @@ import co.edu.poli.sw2.aplicacion.servicio.ActualizarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronesServicio;
 import co.edu.poli.sw2.aplicacion.servicio.CrearDronServicio;
+import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
 import co.edu.poli.sw2.aplicacion.servicio.EliminarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.EvaluarViabilidadVueloServicio;
 import co.edu.poli.sw2.aplicacion.servicio.GetWeatherByCityService;
+import co.edu.poli.sw2.aplicacion.servicio.ProgramadorTareas;
 import co.edu.poli.sw2.aplicacion.servicio.WeatherNotificationService;
 import co.edu.poli.sw2.dominio.weather.WeatherObserver;
 import co.edu.poli.sw2.dominio.weather.chain.HumidityHandler;
@@ -99,10 +101,15 @@ public class App extends Application {
               .setNext(new PressureHandler()).setNext(new VisibilityHandler());
         EvaluarViabilidadVueloUseCase evaluarViabilidadUC = new EvaluarViabilidadVueloServicio(cadena);
 
-        // 5. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
+        // 5. Patron Command: Receiver (wrapper) e Invoker.
+        DroneOperacionService droneOperacionService = new DroneOperacionService();
+        ProgramadorTareas programadorTareas = new ProgramadorTareas();
+
+        // 6. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/co/edu/poli/sw2/view/GestorDrones.fxml"));
         loader.setControllerFactory(tipo -> new MainController(
-            crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones, evaluarViabilidadUC));
+            crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones, evaluarViabilidadUC,
+            programadorTareas, droneOperacionService));
         Parent root = loader.load();
 
         ScrollPane contenedor = new ScrollPane(root);
