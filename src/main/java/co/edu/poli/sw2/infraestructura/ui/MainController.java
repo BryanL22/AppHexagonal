@@ -13,6 +13,21 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.GestionarSuscripcionesClimaUseC
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
+import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
+import co.edu.poli.sw2.aplicacion.servicio.ProgramadorTareas;
+import co.edu.poli.sw2.aplicacion.usecase.CalcularConsumoUseCase;
+import co.edu.poli.sw2.dominio.strategy.AhorroStrategy;
+import co.edu.poli.sw2.dominio.strategy.AltoRendimientoStrategy;
+import co.edu.poli.sw2.dominio.strategy.ConsumoStrategy;
+import co.edu.poli.sw2.dominio.strategy.NormalStrategy;
+import co.edu.poli.sw2.infraestructura.loader.JsonRutaLoader;
+import co.edu.poli.sw2.infraestructura.util.HaversineUtil;
+import javafx.stage.FileChooser;
+import java.io.File;
+import java.util.Locale;
+import co.edu.poli.sw2.dominio.command.EscanearZonaCommand;
+import co.edu.poli.sw2.dominio.command.MedirTemperaturaCommand;
+import co.edu.poli.sw2.dominio.command.TomarFotografiaCommand;
 import co.edu.poli.sw2.dominio.weather.Weather;
 import co.edu.poli.sw2.dominio.weather.chain.ViabilityResult;
 
@@ -28,6 +43,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -106,6 +122,47 @@ public class MainController {
     @FXML
     public Label lblSuscripciones;
 
+    /** Selector del dron sobre el que se ejecutara una operacion. */
+    @FXML
+    private ComboBox<String> cbDronOperacion;
+    /** Casilla para seleccionar el comando de tomar fotografia. */
+    @FXML
+    private CheckBox chkTomarFoto;
+    /** Casilla para seleccionar el comando de escanear zona. */
+    @FXML
+    private CheckBox chkEscanearZona;
+    /** Casilla para seleccionar el comando de medir temperatura. */
+    @FXML
+    private CheckBox chkMedirTemperatura;
+    /** Etiqueta que muestra el resultado de la operacion ejecutada. */
+    @FXML
+    private Label lblResultadoOperacion;
+    /** Etiqueta de titulo del historial de operaciones por dron. */
+    @FXML
+    private Label lblTituloHistorial;
+    /** Lista que muestra el historial de operaciones ejecutadas con los comandos. */
+    @FXML
+    private ListView<String> lvHistorialOperaciones;
+
+    /** Selector del dron para el calculo de consumo de ruta (Strategy). */
+    @FXML
+    private ComboBox<String> cbDronEstrategia;
+    /** Resumen de la ruta cargada desde archivo JSON. */
+    @FXML
+    private Label lblInfoRuta;
+    /** Selector de la estrategia de consumo energetico. */
+    @FXML
+    private ComboBox<ConsumoStrategy> cbEstrategiaConsumo;
+    /** Etiqueta de distancia en kilometros calculada con Haversine. */
+    @FXML
+    private Label lblDistanciaRuta;
+    /** Etiqueta de la estrategia aplicada. */
+    @FXML
+    private Label lblEstrategiaSeleccionada;
+    /** Etiqueta del consumo energetico calculado. */
+    @FXML
+    private Label lblConsumoCalculado;
+
     /** Tabla con los drones consultados. */
     @FXML
     private TableView<Drone> tablaDrones;
@@ -147,8 +204,20 @@ public class MainController {
     public GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima;
     /** Caso de uso para evaluar la viabilidad de vuelo con el clima. */
     public EvaluarViabilidadVueloUseCase evaluarViabilidad;
+    /** Invoker del patron Command: programa y ejecuta operaciones. */
+    private final ProgramadorTareas programadorTareas;
+    /** Wrapper que implementa las operaciones del dron. */
+    private final DroneOperacionService droneOperacionService;
     /** Lista observable enlazada a {@link #tablaDrones}. */
     private final ObservableList<Drone> drones = FXCollections.observableArrayList();
+    /** Caso de uso y Contexto del patron Strategy. */
+    private final CalcularConsumoUseCase calcularConsumoUseCase;
+    /** Cargador de rutas JSON. */
+    private final JsonRutaLoader jsonRutaLoader;
+    /** Ruta cargada en memoria. */
+    private JsonRutaLoader.Ruta rutaActual;
+    /** Distancia calculada en kilometros de la ruta cargada. */
+    private double distanciaActualKm = -1.0;
 
     /**
      * Crea el controlador con los casos de uso que puede disparar.
@@ -166,7 +235,24 @@ public class MainController {
             ConsultarDronesUseCase consultarDrones, ActualizarDronUseCase actualizarDron,
             EliminarDronUseCase eliminarDron, GetWeatherByCityUseCase consultarClima,
             GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima,
-            EvaluarViabilidadVueloUseCase evaluarViabilidad) {
+            EvaluarViabilidadVueloUseCase evaluarViabilidad,
+            ProgramadorTareas programadorTareas,
+            DroneOperacionService droneOperacionService) {
+        this(crearDron, consultarDron, consultarDrones, actualizarDron, eliminarDron,
+                consultarClima, gestionarSuscripcionesClima, evaluarViabilidad,
+                programadorTareas, droneOperacionService,
+                new CalcularConsumoUseCase(), new JsonRutaLoader());
+    }
+
+    public MainController(CrearDronUseCase crearDron, ConsultarDronUseCase consultarDron,
+            ConsultarDronesUseCase consultarDrones, ActualizarDronUseCase actualizarDron,
+            EliminarDronUseCase eliminarDron, GetWeatherByCityUseCase consultarClima,
+            GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima,
+            EvaluarViabilidadVueloUseCase evaluarViabilidad,
+            ProgramadorTareas programadorTareas,
+            DroneOperacionService droneOperacionService,
+            CalcularConsumoUseCase calcularConsumoUseCase,
+            JsonRutaLoader jsonRutaLoader) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
@@ -175,6 +261,10 @@ public class MainController {
         this.consultarClima = consultarClima;
         this.gestionarSuscripcionesClima = gestionarSuscripcionesClima;
         this.evaluarViabilidad = evaluarViabilidad;
+        this.programadorTareas = programadorTareas;
+        this.droneOperacionService = droneOperacionService;
+        this.calcularConsumoUseCase = (calcularConsumoUseCase != null) ? calcularConsumoUseCase : new CalcularConsumoUseCase();
+        this.jsonRutaLoader = (jsonRutaLoader != null) ? jsonRutaLoader : new JsonRutaLoader();
     }
 
     /**
@@ -202,10 +292,40 @@ public class MainController {
                 .addListener((observable, anterior, seleccionado) -> {
                     if (seleccionado != null) {
                         llenarFormulario(seleccionado);
+                        cbDronOperacion.setValue(seleccionado.getId());
+                        if (cbDronEstrategia != null) {
+                            cbDronEstrategia.setValue(seleccionado.getId());
+                        }
                     }
                 });
 
+        cbDronOperacion.getSelectionModel().selectedItemProperty()
+                .addListener((observable, anterior, seleccionado) -> {
+                    actualizarHistorialVista(seleccionado);
+                    if (cbDronEstrategia != null && seleccionado != null) {
+                        cbDronEstrategia.setValue(seleccionado);
+                    }
+                });
+
+        if (cbDronEstrategia != null) {
+            cbDronEstrategia.getSelectionModel().selectedItemProperty()
+                    .addListener((observable, anterior, seleccionado) -> {
+                        if (cbDronOperacion != null && seleccionado != null) {
+                            cbDronOperacion.setValue(seleccionado);
+                        }
+                    });
+        }
+
+        if (cbEstrategiaConsumo != null) {
+            cbEstrategiaConsumo.setItems(FXCollections.observableArrayList(
+                    new AhorroStrategy(),
+                    new NormalStrategy(),
+                    new AltoRendimientoStrategy()
+            ));
+        }
+
         cargarDrones();
+        actualizarComboDrones();
     }
 
     /**
@@ -440,6 +560,94 @@ public class MainController {
         mostrarSuscripcionesClima();
     }
 
+    /**
+     * Boton "Confirmar y Ejecutar Comandos": revisa que casillas fueron seleccionadas,
+     * programa los comandos en el invoker y los ejecuta en bloque.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onEjecutarComandos(ActionEvent event) {
+        if (!validarSeleccionDron()) return;
+
+        programadorTareas.limpiarTareas();
+
+        if (chkTomarFoto != null && chkTomarFoto.isSelected()) {
+            programadorTareas.agregarTarea(new TomarFotografiaCommand(droneOperacionService));
+        }
+        if (chkEscanearZona != null && chkEscanearZona.isSelected()) {
+            programadorTareas.agregarTarea(new EscanearZonaCommand(droneOperacionService));
+        }
+        if (chkMedirTemperatura != null && chkMedirTemperatura.isSelected()) {
+            programadorTareas.agregarTarea(new MedirTemperaturaCommand(droneOperacionService));
+        }
+
+        String dronId = cbDronOperacion.getValue();
+        java.util.List<String> resultados = programadorTareas.ejecutarTareasParaDron(dronId);
+
+        if (resultados.isEmpty()) {
+            lblResultadoOperacion.setText("No se selecciono ninguna operacion para ejecutar.");
+            mostrarAlerta(AlertType.WARNING, "Debes seleccionar al menos una operacion para ejecutar.");
+            return;
+        }
+
+        actualizarHistorialVista(dronId);
+        lblResultadoOperacion.setText("Se ejecutaron " + resultados.size() + " comando(s) para el dron [" + dronId + "].");
+    }
+
+    /**
+     * Actualiza la lista del historial mostrando unicamente las tareas del dron seleccionado.
+     *
+     * @param dronId identificador del dron elegido.
+     */
+    private void actualizarHistorialVista(String dronId) {
+        if (lvHistorialOperaciones == null) return;
+        lvHistorialOperaciones.getItems().clear();
+
+        if (dronId == null || dronId.isBlank()) {
+            if (lblTituloHistorial != null) {
+                lblTituloHistorial.setText("Historial de Operaciones del Dron:");
+            }
+            return;
+        }
+
+        if (lblTituloHistorial != null) {
+            lblTituloHistorial.setText("Historial de Operaciones: [" + dronId + "]");
+        }
+
+        java.util.List<String> tareasDron = programadorTareas.obtenerHistorialDeDron(dronId);
+        for (int i = tareasDron.size() - 1; i >= 0; i--) {
+            lvHistorialOperaciones.getItems().add(tareasDron.get(i));
+        }
+    }
+
+    /**
+     * Verifica que el usuario haya seleccionado un dron en el ComboBox.
+     *
+     * @return {@code true} si hay un dron seleccionado.
+     */
+    private boolean validarSeleccionDron() {
+        if (cbDronOperacion.getValue() == null) {
+            mostrarAlerta(AlertType.WARNING, "Selecciona un dron para ejecutar la operacion.");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Actualiza el ComboBox de operaciones con los IDs de los drones de la tabla.
+     */
+    private void actualizarComboDrones() {
+        ObservableList<String> ids = FXCollections.observableArrayList();
+        for (Drone d : drones) {
+            ids.add(d.getId());
+        }
+        cbDronOperacion.setItems(ids);
+        if (cbDronEstrategia != null) {
+            cbDronEstrategia.setItems(ids);
+        }
+    }
+
     /** Presenta los identificadores actualmente registrados en Observer. */
     private void mostrarSuscripcionesClima() {
         java.util.List<String> ids = gestionarSuscripcionesClima.listarSuscritos();
@@ -493,6 +701,7 @@ public class MainController {
     private void cargarDrones() {
         try {
             drones.setAll(consultarDrones.consultarTodos());
+            actualizarComboDrones();
         } catch (PersistenciaException e) {
             mostrarAlerta(AlertType.ERROR, e.getMessage());
         }
@@ -653,5 +862,85 @@ public class MainController {
      */
     private void mostrarAlerta(AlertType tipo, String mensaje) {
         new Alert(tipo, mensaje).showAndWait();
+    }
+
+    /**
+     * Permite seleccionar y cargar un archivo JSON con las coordenadas de una ruta.
+     *
+     * @param event evento de accion de JavaFX.
+     */
+    @FXML
+    private void onCargarRutaJson(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Seleccionar archivo JSON de ruta");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Archivos JSON (*.json)", "*.json")
+        );
+        File archivo = fileChooser.showOpenDialog(null);
+        if (archivo == null) {
+            return;
+        }
+
+        try {
+            rutaActual = jsonRutaLoader.cargarRuta(archivo);
+            distanciaActualKm = HaversineUtil.calcularDistanciaKm(rutaActual.origen(), rutaActual.destino());
+
+            lblInfoRuta.setText(String.format("Origen: %s -> Destino: %s (%s)",
+                    rutaActual.origen().getNombre(), rutaActual.destino().getNombre(), archivo.getName()));
+            lblDistanciaRuta.setText(String.format(Locale.US, "%.2f km", distanciaActualKm));
+
+            if (cbEstrategiaConsumo.getValue() != null && cbDronEstrategia.getValue() != null) {
+                calcularYMostrarConsumo();
+            }
+        } catch (Exception e) {
+            rutaActual = null;
+            distanciaActualKm = -1.0;
+            lblInfoRuta.setText("Error al cargar ruta: " + e.getMessage());
+            lblDistanciaRuta.setText("-- km");
+            lblConsumoCalculado.setText("--");
+            mostrarAlerta(AlertType.ERROR, "No se pudo cargar la ruta JSON: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Ejecuta el calculo de consumo energetico coordinado por {@link CalcularConsumoUseCase}.
+     *
+     * @param event evento de accion de JavaFX.
+     */
+    @FXML
+    private void onCalcularConsumo(ActionEvent event) {
+        if (cbDronEstrategia.getValue() == null || cbDronEstrategia.getValue().isBlank()) {
+            mostrarAlerta(AlertType.WARNING, "Debes seleccionar un dron registrado para el calculo.");
+            return;
+        }
+        if (rutaActual == null || distanciaActualKm < 0) {
+            mostrarAlerta(AlertType.WARNING, "Debes cargar primero un archivo JSON con la ruta.");
+            return;
+        }
+        ConsumoStrategy estrategia = cbEstrategiaConsumo.getValue();
+        if (estrategia == null) {
+            mostrarAlerta(AlertType.WARNING, "Debes seleccionar una estrategia de consumo energetico.");
+            return;
+        }
+
+        calcularYMostrarConsumo();
+    }
+
+    /**
+     * Delega el calculo al caso de uso (Contexto del patron Strategy) y actualiza la vista.
+     */
+    private void calcularYMostrarConsumo() {
+        ConsumoStrategy estrategia = cbEstrategiaConsumo.getValue();
+        if (estrategia == null || distanciaActualKm < 0) {
+            return;
+        }
+
+        // Se delega al caso de uso (Context) sin ninguna estructura condicional
+        double consumo = calcularConsumoUseCase.calcular(distanciaActualKm, estrategia);
+
+        lblDistanciaRuta.setText(String.format(Locale.US, "%.2f km", distanciaActualKm));
+        lblEstrategiaSeleccionada.setText(estrategia.getNombre());
+        lblConsumoCalculado.setText(String.format(Locale.US, "%.2f unidades (Dron %s)",
+                consumo, cbDronEstrategia.getValue()));
     }
 }
