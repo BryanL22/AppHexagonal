@@ -15,6 +15,16 @@ import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
 import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
 import co.edu.poli.sw2.aplicacion.servicio.ProgramadorTareas;
+import co.edu.poli.sw2.aplicacion.usecase.CalcularConsumoUseCase;
+import co.edu.poli.sw2.dominio.strategy.AhorroStrategy;
+import co.edu.poli.sw2.dominio.strategy.AltoRendimientoStrategy;
+import co.edu.poli.sw2.dominio.strategy.ConsumoStrategy;
+import co.edu.poli.sw2.dominio.strategy.NormalStrategy;
+import co.edu.poli.sw2.infraestructura.loader.JsonRutaLoader;
+import co.edu.poli.sw2.infraestructura.util.HaversineUtil;
+import javafx.stage.FileChooser;
+import java.io.File;
+import java.util.Locale;
 import co.edu.poli.sw2.dominio.command.EscanearZonaCommand;
 import co.edu.poli.sw2.dominio.command.MedirTemperaturaCommand;
 import co.edu.poli.sw2.dominio.command.TomarFotografiaCommand;
@@ -134,6 +144,25 @@ public class MainController {
     @FXML
     private ListView<String> lvHistorialOperaciones;
 
+    /** Selector del dron para el calculo de consumo de ruta (Strategy). */
+    @FXML
+    private ComboBox<String> cbDronEstrategia;
+    /** Resumen de la ruta cargada desde archivo JSON. */
+    @FXML
+    private Label lblInfoRuta;
+    /** Selector de la estrategia de consumo energetico. */
+    @FXML
+    private ComboBox<ConsumoStrategy> cbEstrategiaConsumo;
+    /** Etiqueta de distancia en kilometros calculada con Haversine. */
+    @FXML
+    private Label lblDistanciaRuta;
+    /** Etiqueta de la estrategia aplicada. */
+    @FXML
+    private Label lblEstrategiaSeleccionada;
+    /** Etiqueta del consumo energetico calculado. */
+    @FXML
+    private Label lblConsumoCalculado;
+
     /** Tabla con los drones consultados. */
     @FXML
     private TableView<Drone> tablaDrones;
@@ -181,6 +210,14 @@ public class MainController {
     private final DroneOperacionService droneOperacionService;
     /** Lista observable enlazada a {@link #tablaDrones}. */
     private final ObservableList<Drone> drones = FXCollections.observableArrayList();
+    /** Caso de uso y Contexto del patron Strategy. */
+    private final CalcularConsumoUseCase calcularConsumoUseCase;
+    /** Cargador de rutas JSON. */
+    private final JsonRutaLoader jsonRutaLoader;
+    /** Ruta cargada en memoria. */
+    private JsonRutaLoader.Ruta rutaActual;
+    /** Distancia calculada en kilometros de la ruta cargada. */
+    private double distanciaActualKm = -1.0;
 
     /**
      * Crea el controlador con los casos de uso que puede disparar.
@@ -201,6 +238,21 @@ public class MainController {
             EvaluarViabilidadVueloUseCase evaluarViabilidad,
             ProgramadorTareas programadorTareas,
             DroneOperacionService droneOperacionService) {
+        this(crearDron, consultarDron, consultarDrones, actualizarDron, eliminarDron,
+                consultarClima, gestionarSuscripcionesClima, evaluarViabilidad,
+                programadorTareas, droneOperacionService,
+                new CalcularConsumoUseCase(), new JsonRutaLoader());
+    }
+
+    public MainController(CrearDronUseCase crearDron, ConsultarDronUseCase consultarDron,
+            ConsultarDronesUseCase consultarDrones, ActualizarDronUseCase actualizarDron,
+            EliminarDronUseCase eliminarDron, GetWeatherByCityUseCase consultarClima,
+            GestionarSuscripcionesClimaUseCase gestionarSuscripcionesClima,
+            EvaluarViabilidadVueloUseCase evaluarViabilidad,
+            ProgramadorTareas programadorTareas,
+            DroneOperacionService droneOperacionService,
+            CalcularConsumoUseCase calcularConsumoUseCase,
+            JsonRutaLoader jsonRutaLoader) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
@@ -211,6 +263,8 @@ public class MainController {
         this.evaluarViabilidad = evaluarViabilidad;
         this.programadorTareas = programadorTareas;
         this.droneOperacionService = droneOperacionService;
+        this.calcularConsumoUseCase = (calcularConsumoUseCase != null) ? calcularConsumoUseCase : new CalcularConsumoUseCase();
+        this.jsonRutaLoader = (jsonRutaLoader != null) ? jsonRutaLoader : new JsonRutaLoader();
     }
 
     /**
@@ -239,13 +293,36 @@ public class MainController {
                     if (seleccionado != null) {
                         llenarFormulario(seleccionado);
                         cbDronOperacion.setValue(seleccionado.getId());
+                        if (cbDronEstrategia != null) {
+                            cbDronEstrategia.setValue(seleccionado.getId());
+                        }
                     }
                 });
 
         cbDronOperacion.getSelectionModel().selectedItemProperty()
                 .addListener((observable, anterior, seleccionado) -> {
                     actualizarHistorialVista(seleccionado);
+                    if (cbDronEstrategia != null && seleccionado != null) {
+                        cbDronEstrategia.setValue(seleccionado);
+                    }
                 });
+
+        if (cbDronEstrategia != null) {
+            cbDronEstrategia.getSelectionModel().selectedItemProperty()
+                    .addListener((observable, anterior, seleccionado) -> {
+                        if (cbDronOperacion != null && seleccionado != null) {
+                            cbDronOperacion.setValue(seleccionado);
+                        }
+                    });
+        }
+
+        if (cbEstrategiaConsumo != null) {
+            cbEstrategiaConsumo.setItems(FXCollections.observableArrayList(
+                    new AhorroStrategy(),
+                    new NormalStrategy(),
+                    new AltoRendimientoStrategy()
+            ));
+        }
 
         cargarDrones();
         actualizarComboDrones();
@@ -566,6 +643,9 @@ public class MainController {
             ids.add(d.getId());
         }
         cbDronOperacion.setItems(ids);
+        if (cbDronEstrategia != null) {
+            cbDronEstrategia.setItems(ids);
+        }
     }
 
     /** Presenta los identificadores actualmente registrados en Observer. */
@@ -782,5 +862,85 @@ public class MainController {
      */
     private void mostrarAlerta(AlertType tipo, String mensaje) {
         new Alert(tipo, mensaje).showAndWait();
+    }
+
+    /**
+     * Permite seleccionar y cargar un archivo JSON con las coordenadas de una ruta.
+     *
+     * @param event evento de accion de JavaFX.
+     */
+    @FXML
+    private void onCargarRutaJson(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Seleccionar archivo JSON de ruta");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Archivos JSON (*.json)", "*.json")
+        );
+        File archivo = fileChooser.showOpenDialog(null);
+        if (archivo == null) {
+            return;
+        }
+
+        try {
+            rutaActual = jsonRutaLoader.cargarRuta(archivo);
+            distanciaActualKm = HaversineUtil.calcularDistanciaKm(rutaActual.origen(), rutaActual.destino());
+
+            lblInfoRuta.setText(String.format("Origen: %s -> Destino: %s (%s)",
+                    rutaActual.origen().getNombre(), rutaActual.destino().getNombre(), archivo.getName()));
+            lblDistanciaRuta.setText(String.format(Locale.US, "%.2f km", distanciaActualKm));
+
+            if (cbEstrategiaConsumo.getValue() != null && cbDronEstrategia.getValue() != null) {
+                calcularYMostrarConsumo();
+            }
+        } catch (Exception e) {
+            rutaActual = null;
+            distanciaActualKm = -1.0;
+            lblInfoRuta.setText("Error al cargar ruta: " + e.getMessage());
+            lblDistanciaRuta.setText("-- km");
+            lblConsumoCalculado.setText("--");
+            mostrarAlerta(AlertType.ERROR, "No se pudo cargar la ruta JSON: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Ejecuta el calculo de consumo energetico coordinado por {@link CalcularConsumoUseCase}.
+     *
+     * @param event evento de accion de JavaFX.
+     */
+    @FXML
+    private void onCalcularConsumo(ActionEvent event) {
+        if (cbDronEstrategia.getValue() == null || cbDronEstrategia.getValue().isBlank()) {
+            mostrarAlerta(AlertType.WARNING, "Debes seleccionar un dron registrado para el calculo.");
+            return;
+        }
+        if (rutaActual == null || distanciaActualKm < 0) {
+            mostrarAlerta(AlertType.WARNING, "Debes cargar primero un archivo JSON con la ruta.");
+            return;
+        }
+        ConsumoStrategy estrategia = cbEstrategiaConsumo.getValue();
+        if (estrategia == null) {
+            mostrarAlerta(AlertType.WARNING, "Debes seleccionar una estrategia de consumo energetico.");
+            return;
+        }
+
+        calcularYMostrarConsumo();
+    }
+
+    /**
+     * Delega el calculo al caso de uso (Contexto del patron Strategy) y actualiza la vista.
+     */
+    private void calcularYMostrarConsumo() {
+        ConsumoStrategy estrategia = cbEstrategiaConsumo.getValue();
+        if (estrategia == null || distanciaActualKm < 0) {
+            return;
+        }
+
+        // Se delega al caso de uso (Context) sin ninguna estructura condicional
+        double consumo = calcularConsumoUseCase.calcular(distanciaActualKm, estrategia);
+
+        lblDistanciaRuta.setText(String.format(Locale.US, "%.2f km", distanciaActualKm));
+        lblEstrategiaSeleccionada.setText(estrategia.getNombre());
+        lblConsumoCalculado.setText(String.format(Locale.US, "%.2f unidades (Dron %s)",
+                consumo, cbDronEstrategia.getValue()));
     }
 }
