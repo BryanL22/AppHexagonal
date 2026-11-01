@@ -12,10 +12,13 @@ import co.edu.poli.sw2.aplicacion.servicio.ActualizarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronesServicio;
 import co.edu.poli.sw2.aplicacion.servicio.CrearDronServicio;
+import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
 import co.edu.poli.sw2.aplicacion.servicio.EliminarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.EvaluarViabilidadVueloServicio;
 import co.edu.poli.sw2.aplicacion.servicio.GetWeatherByCityService;
+import co.edu.poli.sw2.aplicacion.servicio.ProgramadorTareas;
 import co.edu.poli.sw2.aplicacion.servicio.WeatherNotificationService;
+import co.edu.poli.sw2.aplicacion.usecase.CalcularConsumoUseCase;
 import co.edu.poli.sw2.dominio.weather.WeatherObserver;
 import co.edu.poli.sw2.dominio.weather.chain.HumidityHandler;
 import co.edu.poli.sw2.dominio.weather.chain.PressureHandler;
@@ -23,6 +26,7 @@ import co.edu.poli.sw2.dominio.weather.chain.TemperatureHandler;
 import co.edu.poli.sw2.dominio.weather.chain.VisibilityHandler;
 import co.edu.poli.sw2.dominio.weather.chain.WeatherHandler;
 import co.edu.poli.sw2.dominio.weather.chain.WindHandler;
+import co.edu.poli.sw2.infraestructura.loader.JsonRutaLoader;
 import co.edu.poli.sw2.infraestructura.persistencia.ConexionBD;
 import co.edu.poli.sw2.infraestructura.persistencia.MySqlDronRepository;
 import co.edu.poli.sw2.infraestructura.ui.MainController;
@@ -45,8 +49,11 @@ import java.io.IOException;
 /**
  * Punto de entrada de la aplicacion: conecta todo el hexagono.
  *
- * <p>Es el unico lugar donde se decide que implementacion concreta hay detras
- * de cada puerto:</p>
+ * <p>
+ * Es el unico lugar donde se decide que implementacion concreta hay detras
+ * de cada puerto:
+ * </p>
+ * 
  * <pre>
  *   Adaptador de salida  →  Servicios de aplicacion  →  Adaptador de entrada
  *   MySqlDronRepository  →  CrearDronServicio        →  MainController
@@ -56,8 +63,10 @@ import java.io.IOException;
  *                        →  EliminarDronServicio
  * </pre>
  *
- * <p>Ninguna otra clase instancia sus dependencias: por eso cambiar de base de
- * datos o de tecnologia de interfaz solo obliga a tocar este archivo.</p>
+ * <p>
+ * Ninguna otra clase instancia sus dependencias: por eso cambiar de base de
+ * datos o de tecnologia de interfaz solo obliga a tocar este archivo.
+ * </p>
  */
 public class App extends Application {
 
@@ -80,7 +89,8 @@ public class App extends Application {
         // 1. Adaptador de salida: implementa los cinco puertos de salida contra MySQL.
         MySqlDronRepository dronRepo = new MySqlDronRepository();
 
-        // 2. Servicios de aplicacion: uno por caso de uso, con los puertos que necesita.
+        // 2. Servicios de aplicacion: uno por caso de uso, con los puertos que
+        // necesita.
         CrearDronUseCase crearUC = new CrearDronServicio(dronRepo, dronRepo);
         ConsultarDronUseCase consultarUC = new ConsultarDronServicio(dronRepo);
         ConsultarDronesUseCase consultarTodosUC = new ConsultarDronesServicio(dronRepo);
@@ -91,18 +101,29 @@ public class App extends Application {
         WeatherNotificationService notificaciones = new WeatherNotificationService(new WeatherObserver(), dronRepo);
         GeocodificarCiudadPort geocodificador = new GeoApiAdapter(new GeoApiClient());
         GetWeatherByCityUseCase climaUC = new GetWeatherByCityService(
-            new OpenWeatherAdapter(geocodificador, new OpenWeatherClient()), notificaciones);
+                new OpenWeatherAdapter(geocodificador, new OpenWeatherClient()), notificaciones);
 
         // 4. Cadena de responsabilidad para evaluar viabilidad de vuelo segun el clima.
         WeatherHandler cadena = new TemperatureHandler();
         cadena.setNext(new HumidityHandler()).setNext(new WindHandler())
-              .setNext(new PressureHandler()).setNext(new VisibilityHandler());
+                .setNext(new PressureHandler()).setNext(new VisibilityHandler());
         EvaluarViabilidadVueloUseCase evaluarViabilidadUC = new EvaluarViabilidadVueloServicio(cadena);
 
-        // 5. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
+        // 5. Patron Command: Receiver (wrapper) e Invoker.
+        DroneOperacionService droneOperacionService = new DroneOperacionService();
+        ProgramadorTareas programadorTareas = new ProgramadorTareas();
+
+        // 6. Patron Strategy: Caso de uso (Context) y cargador de rutas JSON.
+        CalcularConsumoUseCase calcularConsumoUseCase = new CalcularConsumoUseCase();
+        JsonRutaLoader jsonRutaLoader = new JsonRutaLoader();
+
+        // 7. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/co/edu/poli/sw2/view/GestorDrones.fxml"));
         loader.setControllerFactory(tipo -> new MainController(
-            crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones, evaluarViabilidadUC));
+                crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones,
+                evaluarViabilidadUC,
+                programadorTareas, droneOperacionService,
+                calcularConsumoUseCase, jsonRutaLoader));
         Parent root = loader.load();
 
         ScrollPane contenedor = new ScrollPane(root);
@@ -124,9 +145,11 @@ public class App extends Application {
     /**
      * Recorta la ventana al area visible de la pantalla y la centra.
      *
-     * <p>La escena toma su tamano del contenido, que puede ser mas alto que el
+     * <p>
+     * La escena toma su tamano del contenido, que puede ser mas alto que el
      * monitor; sin este ajuste la barra de titulo quedaria fuera del area
-     * visible y no se podria cerrar ni maximizar con el raton.</p>
+     * visible y no se podria cerrar ni maximizar con el raton.
+     * </p>
      *
      * @param stage ventana principal ya mostrada, con su tamano calculado.
      */

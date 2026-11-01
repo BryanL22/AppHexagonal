@@ -5,6 +5,8 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
@@ -24,8 +26,14 @@
         <Insets top="20" right="20" bottom="20" left="20"/>
     </padding>
 
-    <!-- COLUMNA IZQUIERDA: Formulario de Dron, Acciones CRUD y Seccion Meteorologica -->
-    <VBox spacing="14.0" minWidth="440" prefWidth="480" maxWidth="520">
+    <!-- COLUMNA IZQUIERDA: Formulario de Dron, Acciones CRUD y Operaciones con Slider/Scroll -->
+    <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                minWidth="470" prefWidth="510" maxWidth="540" styleClass="panel-izq-scroll"
+                style="-fx-background-color: #1e1e2e; -fx-background: #1e1e2e;">
+        <VBox spacing="14.0">
+            <padding>
+                <Insets top="0" right="14" bottom="20" left="0"/>
+            </padding>
 
         <Label text="Gestor de Drones" styleClass="titulo"/>
 
@@ -109,7 +117,82 @@
                    GridPane.rowIndex="5" GridPane.columnIndex="0" GridPane.columnSpan="3"/>
         </GridPane>
 
-    </VBox>
+        <!-- Seccion Operaciones del Dron (Patron Command) -->
+        <Label text="Operaciones del Dron (Command)" styleClass="subtitulo"/>
+
+        <GridPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+            <columnConstraints>
+                <ColumnConstraints minWidth="110" prefWidth="120"/>
+                <ColumnConstraints minWidth="160" prefWidth="190"/>
+                <ColumnConstraints minWidth="110" prefWidth="120"/>
+            </columnConstraints>
+
+            <Label text="Seleccionar dron:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cbDronOperacion" promptText="Selecciona un dron" prefWidth="190"
+                      GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+        </GridPane>
+
+        <HBox spacing="14" alignment="CENTER_LEFT">
+            <CheckBox fx:id="chkTomarFoto" text="Tomar Fotografía"/>
+            <CheckBox fx:id="chkEscanearZona" text="Escanear Zona"/>
+            <CheckBox fx:id="chkMedirTemperatura" text="Medir Temperatura"/>
+        </HBox>
+
+        <HBox alignment="CENTER_LEFT" spacing="10">
+            <Button fx:id="btnEjecutarComandos" text="Confirmar y Ejecutar Comandos" prefWidth="240" onAction="#onEjecutarComandos"/>
+        </HBox>
+
+        <Label fx:id="lblResultadoOperacion" wrapText="true" maxWidth="480" styleClass="operacion-resultado"/>
+
+        <Label fx:id="lblTituloHistorial" text="Historial de Operaciones del Dron Seleccionado:" styleClass="subtitulo"/>
+        <ListView fx:id="lvHistorialOperaciones" minHeight="180" prefHeight="200"/>
+
+        <!-- Seccion Calculo de Consumo Energetico de Ruta (Patron Strategy) -->
+        <Label text="Consumo Energético de Ruta (Strategy)" styleClass="subtitulo"/>
+
+        <GridPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+            <columnConstraints>
+                <ColumnConstraints minWidth="130" prefWidth="140"/>
+                <ColumnConstraints minWidth="180" prefWidth="200"/>
+                <ColumnConstraints minWidth="100" prefWidth="120"/>
+            </columnConstraints>
+
+            <!-- 1. Seleccionar dron registrado -->
+            <Label text="1. Dron asignado:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cbDronEstrategia" promptText="Selecciona un dron" prefWidth="200"
+                      GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+            <!-- 2. Cargar ruta JSON -->
+            <Label text="2. Cargar ruta JSON:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <Button fx:id="btnCargarRuta" text="Seleccionar archivo..." prefWidth="200" onAction="#onCargarRutaJson"
+                    GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+            <!-- Resumen de ruta cargada -->
+            <Label text="Ruta cargada:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+            <Label fx:id="lblInfoRuta" text="Ninguna ruta cargada" wrapText="true" maxWidth="320"
+                   GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+
+            <!-- 3. Seleccionar estrategia de consumo -->
+            <Label text="3. Estrategia:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cbEstrategiaConsumo" promptText="Selecciona estrategia" prefWidth="200"
+                      GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+            <Button fx:id="btnCalcularConsumo" text="Calcular" prefWidth="110" onAction="#onCalcularConsumo"
+                    GridPane.rowIndex="3" GridPane.columnIndex="2"/>
+
+            <!-- 4. Visualizar distancia, estrategia y consumo -->
+            <Label text="Distancia:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+            <Label fx:id="lblDistanciaRuta" text="-- km" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+            <Label text="Estrategia aplicada:" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+            <Label fx:id="lblEstrategiaSeleccionada" text="--" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+            <Label text="Consumo estimado:" GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+            <Label fx:id="lblConsumoCalculado" text="--" styleClass="operacion-resultado" wrapText="true" maxWidth="320"
+                   GridPane.rowIndex="6" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+        </GridPane>
+
+        </VBox>
+    </ScrollPane>
 
     <!-- COLUMNA DERECHA: Tabla de la Base de Datos -->
     <VBox spacing="14.0" HBox.hgrow="ALWAYS" minWidth="600" prefWidth="760">

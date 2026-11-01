@@ -3,17 +3,66 @@
     -fx-font-family: "Segoe UI";
 }
 
-/* El ScrollPane envuelve toda la vista para que el contenido siga siendo
-   alcanzable cuando la ventana es mas pequena que el. Se deja sin fondo ni
-   borde propios para que se vea el color de .root. */
+/* El ScrollPane envuelve la vista. Mantiene el fondo oscuro original #1e1e2e. */
 .scroll-pane {
     -fx-background-insets: 0;
     -fx-padding: 0;
+    -fx-background: #1e1e2e;
     -fx-background-color: #1e1e2e;
 }
 
 .scroll-pane > .viewport {
+    -fx-background-color: #1e1e2e;
+}
+
+.panel-izq-scroll {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-background: #1e1e2e;
+    -fx-background-color: #1e1e2e;
+}
+
+.panel-izq-scroll > .viewport {
+    -fx-background-color: #1e1e2e;
+}
+
+/* Barra de desplazamiento (ScrollBar / Slider vertical) */
+.scroll-bar:vertical {
+    -fx-background-color: #181825;
+    -fx-background-radius: 8;
+    -fx-pref-width: 12px;
+}
+
+.scroll-bar:vertical .track {
+    -fx-background-color: #1e1e2e;
+    -fx-background-radius: 8;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar:vertical .thumb {
+    -fx-background-color: #3b82f6;
+    -fx-background-radius: 8;
+}
+
+.scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #60a5fa;
+}
+
+.scroll-bar:vertical .thumb:pressed {
+    -fx-background-color: #2563eb;
+}
+
+.scroll-bar:vertical .increment-button,
+.scroll-bar:vertical .decrement-button {
     -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+}
+
+.scroll-bar:vertical .increment-arrow,
+.scroll-bar:vertical .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
 }
 
 .titulo {
@@ -53,7 +102,29 @@
 }
 
 .check-box {
-    -fx-text-fill: white;
+    -fx-text-fill: #e2e8f0;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+}
+
+.check-box .box {
+    -fx-background-color: #2a2a3c;
+    -fx-border-color: #3f3f5a;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.check-box:hover .box {
+    -fx-border-color: #3b82f6;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #3b82f6;
+    -fx-border-color: #2563eb;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
 }
 
 .text-field {
@@ -77,7 +148,76 @@
     -fx-border-radius: 6;
 }
 
-.combo-box .list-cell {
+.combo-box:hover, .combo-box:focused {
+    -fx-border-color: #3b82f6;
+}
+
+.combo-box > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #f8fafc;
+    -fx-padding: 4 8;
+}
+
+.combo-box .arrow {
+    -fx-background-color: #93c5fd;
+}
+
+.combo-box .arrow-button {
+    -fx-background-color: transparent;
+}
+
+/* Menu desplegable del ComboBox */
+.combo-box-popup .list-view {
+    -fx-background-color: #2a2a3c;
+    -fx-background-radius: 6;
+    -fx-border-color: #3b82f6;
+    -fx-border-radius: 6;
+    -fx-padding: 3;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.5), 10, 0, 0, 4);
+}
+
+.combo-box-popup .list-cell {
+    -fx-background-color: #2a2a3c;
+    -fx-text-fill: #f8fafc;
+    -fx-padding: 6 10;
+}
+
+.combo-box-popup .list-cell:filled:hover {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: #ffffff;
+}
+
+.combo-box-popup .list-cell:filled:selected {
+    -fx-background-color: #2563eb;
+    -fx-text-fill: #ffffff;
+}
+
+/* Historial de operaciones (ListView) */
+.list-view {
+    -fx-background-color: #181825;
+    -fx-background-radius: 6;
+    -fx-border-color: #313244;
+    -fx-border-radius: 6;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #93c5fd;
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.list-view .list-cell:odd {
+    -fx-background-color: #1e1e2e;
+}
+
+.list-view .list-cell:even {
+    -fx-background-color: #242436;
+}
+
+.list-view .list-cell:filled:selected {
+    -fx-background-color: #3b82f6;
     -fx-text-fill: white;
 }
 
@@ -140,5 +280,11 @@
 .clima-no-apto {
     -fx-text-fill: #ef4444;
     -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.operacion-resultado {
+    -fx-text-fill: #22c55e;
+    -fx-font-size: 13px;
     -fx-font-weight: bold;
 }
