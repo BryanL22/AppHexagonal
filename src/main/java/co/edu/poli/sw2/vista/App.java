@@ -7,11 +7,13 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ManageDroneStateUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort;
 import co.edu.poli.sw2.aplicacion.servicio.ActualizarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronesServicio;
 import co.edu.poli.sw2.aplicacion.servicio.CrearDronServicio;
+import co.edu.poli.sw2.aplicacion.servicio.DroneStateService;
 import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
 import co.edu.poli.sw2.aplicacion.servicio.EliminarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.EvaluarViabilidadVueloServicio;
@@ -117,13 +119,16 @@ public class App extends Application {
         CalcularConsumoUseCase calcularConsumoUseCase = new CalcularConsumoUseCase();
         JsonRutaLoader jsonRutaLoader = new JsonRutaLoader();
 
-        // 7. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
+        // 7. Patron State: ciclo de vida del dron (estado en memoria).
+        ManageDroneStateUseCase estadoDronUC = new DroneStateService(dronRepo);
+
+        // 8. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/co/edu/poli/sw2/view/GestorDrones.fxml"));
         loader.setControllerFactory(tipo -> new MainController(
                 crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones,
                 evaluarViabilidadUC,
                 programadorTareas, droneOperacionService,
-                calcularConsumoUseCase, jsonRutaLoader));
+                calcularConsumoUseCase, jsonRutaLoader, estadoDronUC));
         Parent root = loader.load();
 
         ScrollPane contenedor = new ScrollPane(root);
