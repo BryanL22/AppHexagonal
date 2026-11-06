@@ -24,14 +24,16 @@ dominio/
 aplicacion/
   puerto/entrada/    CrearDron, ConsultarDron, ConsultarDrones, ActualizarDron,
                      EliminarDron, GetWeatherByCity, GestionarSuscripcionesClima,
-                     EvaluarViabilidadVuelo, ManageDroneState (sufijo UseCase)
+                     EvaluarViabilidadVuelo, ManageDroneState, ExecuteMission (sufijo UseCase)
   puerto/salida/     GuardarDron, BuscarDron, BuscarDrones, ActualizarDron,
                      EliminarDron, ConsultarClimaPorCiudad, GeocodificarCiudad (sufijo Port)
                      + PersistenciaException, WeatherQueryException
   servicio/          CrearDronServicio, ConsultarDronServicio, ConsultarDronesServicio,
                      ActualizarDronServicio, EliminarDronServicio, GetWeatherByCityService,
                      WeatherNotificationService, EvaluarViabilidadVueloServicio,
-                     DroneStateService
+                     DroneStateService, MissionService
+  mediator/          DroneMediator (Mediator), MissionCoordinator (torre de control)
+  mediator/components/ NavigationSystem, SensorSystem, BatterySystem, CommunicationSystem
 infraestructura/
   persistencia/      ConexionBD (Singleton) y MySqlDronRepository
                      (implementa los puertos de persistencia con SQL)
@@ -58,7 +60,7 @@ Tests en `src/test/java/co/edu/poli/sw2/tests/unitaria`.
    vista y dispara casos de uso. No conoce el repositorio, ni `SQLException`, ni SQL.
 4. **`App` es el único lugar que instancia dependencias** (composition root).
    Ninguna otra clase hace `new` de sus colaboradores.
-5. **Los únicos patrones de diseño permitidos son Singleton (`ConexionBD`), Observer (`WeatherObserver` y `Drone`), Chain of Responsibility (`WeatherHandler` y sus eslabones), Strategy (`ConsumoStrategy`), Command (`DroneCommand`) y State (`DroneState`, con `Drone` como Contexto)**. El resto sigue prohibido: no reintroducir factorías, Builder, Prototype, Decorator, Bridge, Adapter (como patrón GoF tradicional), Composite, Facade ni Proxy.
+5. **Los únicos patrones de diseño permitidos son Singleton (`ConexionBD`), Observer (`WeatherObserver` y `Drone`), Chain of Responsibility (`WeatherHandler` y sus eslabones), Strategy (`ConsumoStrategy`), Command (`DroneCommand`), State (`DroneState`, con `DroneContext` como Contexto) y Mediator (`DroneMediator`, con `MissionCoordinator` como torre de control)**. El resto sigue prohibido: no reintroducir factorías, Builder, Prototype, Decorator, Bridge, Adapter (como patrón GoF tradicional), Composite, Facade ni Proxy.
 
 ### Detalles que sorprenden
 
@@ -74,6 +76,10 @@ Tests en `src/test/java/co/edu/poli/sw2/tests/unitaria`.
   último `DroneState` de cada dron en un mapa por ID y, en cada operación, arma
   un `DroneContext` con ese estado (o con `OffState`, APAGADO, si nunca se operó).
   No hay columna de estado en MySQL; al cerrar la app todos vuelven a APAGADO.
+- El **Mediator** vive en `aplicacion/mediator` y no usa el CRUD ni toca el modelo:
+  los 4 sistemas solo conocen a `DroneMediator` y `MissionCoordinator` decide
+  la secuencia (ruta, sensores, bateria, enlace). Con bateria menor a
+  `BatterySystem.NIVEL_MINIMO` (30 %) la mision se aborta.
 - Los recursos se cargan con **ruta absoluta** (`/co/edu/poli/sw2/view/...`)
   porque `App` no está en el mismo paquete que los recursos.
 - `module-info.java` abre `dominio.modelo` a `javafx.base` porque la tabla usa

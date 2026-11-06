@@ -6,8 +6,14 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ExecuteMissionUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.ManageDroneStateUseCase;
+import co.edu.poli.sw2.aplicacion.mediator.MissionCoordinator;
+import co.edu.poli.sw2.aplicacion.mediator.components.BatterySystem;
+import co.edu.poli.sw2.aplicacion.mediator.components.CommunicationSystem;
+import co.edu.poli.sw2.aplicacion.mediator.components.NavigationSystem;
+import co.edu.poli.sw2.aplicacion.mediator.components.SensorSystem;
 import co.edu.poli.sw2.aplicacion.puerto.salida.GeocodificarCiudadPort;
 import co.edu.poli.sw2.aplicacion.servicio.ActualizarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.ConsultarDronServicio;
@@ -18,6 +24,7 @@ import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
 import co.edu.poli.sw2.aplicacion.servicio.EliminarDronServicio;
 import co.edu.poli.sw2.aplicacion.servicio.EvaluarViabilidadVueloServicio;
 import co.edu.poli.sw2.aplicacion.servicio.GetWeatherByCityService;
+import co.edu.poli.sw2.aplicacion.servicio.MissionService;
 import co.edu.poli.sw2.aplicacion.servicio.ProgramadorTareas;
 import co.edu.poli.sw2.aplicacion.servicio.WeatherNotificationService;
 import co.edu.poli.sw2.aplicacion.usecase.CalcularConsumoUseCase;
@@ -122,13 +129,18 @@ public class App extends Application {
         // 7. Patron State: ciclo de vida del dron (estado en memoria).
         ManageDroneStateUseCase estadoDronUC = new DroneStateService(dronRepo);
 
-        // 8. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
+        // 8. Patron Mediator: la torre de control coordina los cuatro sistemas.
+        MissionCoordinator coordinador = new MissionCoordinator(
+                new NavigationSystem(), new SensorSystem(), new BatterySystem(), new CommunicationSystem());
+        ExecuteMissionUseCase misionUC = new MissionService(coordinador);
+
+        // 9. Adaptador de entrada: el controlador recibe los casos de uso ya listos.
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/co/edu/poli/sw2/view/GestorDrones.fxml"));
         loader.setControllerFactory(tipo -> new MainController(
                 crearUC, consultarUC, consultarTodosUC, actualizarUC, eliminarUC, climaUC, notificaciones,
                 evaluarViabilidadUC,
                 programadorTareas, droneOperacionService,
-                calcularConsumoUseCase, jsonRutaLoader, estadoDronUC));
+                calcularConsumoUseCase, jsonRutaLoader, estadoDronUC, misionUC));
         Parent root = loader.load();
 
         ScrollPane contenedor = new ScrollPane(root);

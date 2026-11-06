@@ -217,6 +217,34 @@
             <Button text="Apagar" onAction="#onApagar"/>
         </HBox>
 
+        <!-- Seccion Operacion de Vigilancia (Patron Mediator) -->
+        <Label text="Operación de Vigilancia (Mediator)" styleClass="subtitulo"/>
+
+        <GridPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+            <columnConstraints>
+                <ColumnConstraints minWidth="130" prefWidth="140"/>
+                <ColumnConstraints minWidth="180" prefWidth="200"/>
+                <ColumnConstraints minWidth="100" prefWidth="120"/>
+            </columnConstraints>
+
+            <Label text="Seleccionar dron:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cbDronMision" promptText="Selecciona un dron" prefWidth="200"
+                      GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+            <Label text="Batería (%):" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <TextField fx:id="txtBateriaMision" promptText="0 a 100 (mínimo 30)" prefWidth="200"
+                       GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+            <Button text="Iniciar misión" prefWidth="120" onAction="#onIniciarMision"
+                    GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+
+            <Label text="Resultado:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+            <Label fx:id="lblResultadoMision" text="--" styleClass="operacion-resultado" wrapText="true" maxWidth="320"
+                   GridPane.rowIndex="2" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
+        </GridPane>
+
+        <Label text="Bitácora de la torre de control:"/>
+        <ListView fx:id="lstBitacoraMision" prefHeight="270" minHeight="270"/>
+
         </VBox>
     </ScrollPane>
 

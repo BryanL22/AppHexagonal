@@ -9,6 +9,7 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.ConsultarDronesUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.CrearDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ExecuteMissionUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GestionarSuscripcionesClimaUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.ManageDroneStateUseCase;
@@ -25,6 +26,7 @@ import co.edu.poli.sw2.infraestructura.loader.JsonRutaLoader;
 import co.edu.poli.sw2.infraestructura.util.HaversineUtil;
 import javafx.stage.FileChooser;
 import java.io.File;
+import java.util.List;
 import java.util.Locale;
 import co.edu.poli.sw2.dominio.command.EscanearZonaCommand;
 import co.edu.poli.sw2.dominio.command.MedirTemperaturaCommand;
@@ -171,6 +173,19 @@ public class MainController {
     @FXML
     private Label lblEstadoDron;
 
+    /** Selector del dron de la operacion de vigilancia (patron Mediator). */
+    @FXML
+    private ComboBox<String> cbDronMision;
+    /** Porcentaje de bateria del dron para la operacion. */
+    @FXML
+    private TextField txtBateriaMision;
+    /** Bitacora de la operacion: cada paso que coordino la torre de control. */
+    @FXML
+    private ListView<String> lstBitacoraMision;
+    /** Ultimo paso de la bitacora: si la mision se inicio o se aborto. */
+    @FXML
+    private Label lblResultadoMision;
+
     /** Tabla con los drones consultados. */
     @FXML
     private TableView<Drone> tablaDrones;
@@ -228,6 +243,8 @@ public class MainController {
     private double distanciaActualKm = -1.0;
     /** Caso de uso del ciclo de vida del dron (patron State). */
     private final ManageDroneStateUseCase manageDroneState;
+    /** Caso de uso de la operacion de vigilancia (patron Mediator). */
+    private final ExecuteMissionUseCase executeMission;
 
     /**
      * Crea el controlador con los casos de uso que puede disparar.
@@ -251,7 +268,7 @@ public class MainController {
         this(crearDron, consultarDron, consultarDrones, actualizarDron, eliminarDron,
                 consultarClima, gestionarSuscripcionesClima, evaluarViabilidad,
                 programadorTareas, droneOperacionService,
-                new CalcularConsumoUseCase(), new JsonRutaLoader(), null);
+                new CalcularConsumoUseCase(), new JsonRutaLoader(), null, null);
     }
 
     public MainController(CrearDronUseCase crearDron, ConsultarDronUseCase consultarDron,
@@ -263,7 +280,8 @@ public class MainController {
             DroneOperacionService droneOperacionService,
             CalcularConsumoUseCase calcularConsumoUseCase,
             JsonRutaLoader jsonRutaLoader,
-            ManageDroneStateUseCase manageDroneState) {
+            ManageDroneStateUseCase manageDroneState,
+            ExecuteMissionUseCase executeMission) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
@@ -277,6 +295,7 @@ public class MainController {
         this.calcularConsumoUseCase = (calcularConsumoUseCase != null) ? calcularConsumoUseCase : new CalcularConsumoUseCase();
         this.jsonRutaLoader = (jsonRutaLoader != null) ? jsonRutaLoader : new JsonRutaLoader();
         this.manageDroneState = manageDroneState;
+        this.executeMission = executeMission;
     }
 
     /**
@@ -310,6 +329,9 @@ public class MainController {
                         }
                         if (cbDronEstado != null) {
                             cbDronEstado.setValue(seleccionado.getId());
+                        }
+                        if (cbDronMision != null) {
+                            cbDronMision.setValue(seleccionado.getId());
                         }
                     }
                 });
@@ -669,6 +691,9 @@ public class MainController {
         if (cbDronEstado != null) {
             cbDronEstado.setItems(ids);
         }
+        if (cbDronMision != null) {
+            cbDronMision.setItems(ids);
+        }
     }
 
     /**
@@ -762,6 +787,40 @@ public class MainController {
             lblEstadoDron.setText(manageDroneState.consultarEstado(dronId));
         } catch (IllegalArgumentException | PersistenciaException e) {
             lblEstadoDron.setText("--");
+        }
+    }
+
+    /**
+     * Boton "Iniciar mision": ejecuta la operacion de vigilancia del dron
+     * seleccionado y muestra la bitacora de la torre de control.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onIniciarMision(ActionEvent event) {
+        if (executeMission == null) {
+            mostrarAlerta(AlertType.ERROR, "La operacion de vigilancia no esta disponible.");
+            return;
+        }
+        String dronId = cbDronMision.getValue();
+        if (dronId == null) {
+            mostrarAlerta(AlertType.WARNING, "Selecciona un dron para la operacion.");
+            return;
+        }
+        int nivelBateria;
+        try {
+            nivelBateria = Integer.parseInt(txtBateriaMision.getText().trim());
+        } catch (NumberFormatException e) {
+            mostrarAlerta(AlertType.WARNING, "La bateria debe ser un numero entero entre 0 y 100.");
+            return;
+        }
+        try {
+            List<String> bitacora = executeMission.ejecutarMision(dronId, nivelBateria);
+            lstBitacoraMision.setItems(FXCollections.observableArrayList(bitacora));
+            lstBitacoraMision.scrollTo(bitacora.size() - 1);
+            lblResultadoMision.setText(bitacora.get(bitacora.size() - 1));
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
         }
     }
 
