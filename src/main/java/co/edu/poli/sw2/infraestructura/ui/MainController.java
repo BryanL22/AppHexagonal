@@ -11,6 +11,7 @@ import co.edu.poli.sw2.aplicacion.puerto.entrada.EliminarDronUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.EvaluarViabilidadVueloUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GestionarSuscripcionesClimaUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.entrada.GetWeatherByCityUseCase;
+import co.edu.poli.sw2.aplicacion.puerto.entrada.ManageDroneStateUseCase;
 import co.edu.poli.sw2.aplicacion.puerto.salida.PersistenciaException;
 import co.edu.poli.sw2.aplicacion.puerto.salida.WeatherQueryException;
 import co.edu.poli.sw2.aplicacion.servicio.DroneOperacionService;
@@ -163,6 +164,13 @@ public class MainController {
     @FXML
     private Label lblConsumoCalculado;
 
+    /** Selector del dron cuyo estado se maneja (patron State). */
+    @FXML
+    private ComboBox<String> cbDronEstado;
+    /** Etiqueta con el estado actual del dron seleccionado. */
+    @FXML
+    private Label lblEstadoDron;
+
     /** Tabla con los drones consultados. */
     @FXML
     private TableView<Drone> tablaDrones;
@@ -218,6 +226,8 @@ public class MainController {
     private JsonRutaLoader.Ruta rutaActual;
     /** Distancia calculada en kilometros de la ruta cargada. */
     private double distanciaActualKm = -1.0;
+    /** Caso de uso del ciclo de vida del dron (patron State). */
+    private final ManageDroneStateUseCase manageDroneState;
 
     /**
      * Crea el controlador con los casos de uso que puede disparar.
@@ -241,7 +251,7 @@ public class MainController {
         this(crearDron, consultarDron, consultarDrones, actualizarDron, eliminarDron,
                 consultarClima, gestionarSuscripcionesClima, evaluarViabilidad,
                 programadorTareas, droneOperacionService,
-                new CalcularConsumoUseCase(), new JsonRutaLoader());
+                new CalcularConsumoUseCase(), new JsonRutaLoader(), null);
     }
 
     public MainController(CrearDronUseCase crearDron, ConsultarDronUseCase consultarDron,
@@ -252,7 +262,8 @@ public class MainController {
             ProgramadorTareas programadorTareas,
             DroneOperacionService droneOperacionService,
             CalcularConsumoUseCase calcularConsumoUseCase,
-            JsonRutaLoader jsonRutaLoader) {
+            JsonRutaLoader jsonRutaLoader,
+            ManageDroneStateUseCase manageDroneState) {
         this.crearDron = crearDron;
         this.consultarDron = consultarDron;
         this.consultarDrones = consultarDrones;
@@ -265,6 +276,7 @@ public class MainController {
         this.droneOperacionService = droneOperacionService;
         this.calcularConsumoUseCase = (calcularConsumoUseCase != null) ? calcularConsumoUseCase : new CalcularConsumoUseCase();
         this.jsonRutaLoader = (jsonRutaLoader != null) ? jsonRutaLoader : new JsonRutaLoader();
+        this.manageDroneState = manageDroneState;
     }
 
     /**
@@ -296,8 +308,16 @@ public class MainController {
                         if (cbDronEstrategia != null) {
                             cbDronEstrategia.setValue(seleccionado.getId());
                         }
+                        if (cbDronEstado != null) {
+                            cbDronEstado.setValue(seleccionado.getId());
+                        }
                     }
                 });
+
+        if (cbDronEstado != null) {
+            cbDronEstado.getSelectionModel().selectedItemProperty()
+                    .addListener((observable, anterior, seleccionado) -> mostrarEstadoDron(seleccionado));
+        }
 
         cbDronOperacion.getSelectionModel().selectedItemProperty()
                 .addListener((observable, anterior, seleccionado) -> {
@@ -645,6 +665,103 @@ public class MainController {
         cbDronOperacion.setItems(ids);
         if (cbDronEstrategia != null) {
             cbDronEstrategia.setItems(ids);
+        }
+        if (cbDronEstado != null) {
+            cbDronEstado.setItems(ids);
+        }
+    }
+
+    /**
+     * Boton "Encender": enciende el dron seleccionado.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onEncender(ActionEvent event) {
+        cambiarEstado(id -> manageDroneState.encender(id));
+    }
+
+    /**
+     * Boton "Despegar": despega el dron seleccionado.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onDespegar(ActionEvent event) {
+        cambiarEstado(id -> manageDroneState.despegar(id));
+    }
+
+    /**
+     * Boton "Aterrizar": inicia el aterrizaje del dron seleccionado.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onAterrizar(ActionEvent event) {
+        cambiarEstado(id -> manageDroneState.aterrizar(id));
+    }
+
+    /**
+     * Boton "Finalizar aterrizaje": termina el aterrizaje del dron seleccionado.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onFinalizarAterrizaje(ActionEvent event) {
+        cambiarEstado(id -> manageDroneState.finalizarAterrizaje(id));
+    }
+
+    /**
+     * Boton "Apagar": apaga el dron seleccionado.
+     *
+     * @param event evento del boton (no se usa).
+     */
+    @FXML
+    private void onApagar(ActionEvent event) {
+        cambiarEstado(id -> manageDroneState.apagar(id));
+    }
+
+    /**
+     * Ejecuta una transicion del caso de uso sobre el dron seleccionado y
+     * muestra el estado resultante. Si la transicion no esta permitida,
+     * muestra el motivo y el estado no cambia.
+     *
+     * @param transicion operacion del caso de uso que recibe el ID del dron.
+     */
+    private void cambiarEstado(java.util.function.Function<String, String> transicion) {
+        if (manageDroneState == null) {
+            mostrarAlerta(AlertType.ERROR, "El manejo de estados del dron no esta disponible.");
+            return;
+        }
+        String dronId = cbDronEstado.getValue();
+        if (dronId == null) {
+            mostrarAlerta(AlertType.WARNING, "Selecciona un dron para cambiar su estado.");
+            return;
+        }
+        try {
+            lblEstadoDron.setText(transicion.apply(dronId));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            mostrarAlerta(AlertType.WARNING, e.getMessage());
+        } catch (PersistenciaException e) {
+            mostrarAlerta(AlertType.ERROR, e.getMessage());
+        }
+    }
+
+    /**
+     * Muestra el estado actual del dron elegido en el selector.
+     *
+     * @param dronId identificador del dron, o {@code null} si no hay seleccion.
+     */
+    private void mostrarEstadoDron(String dronId) {
+        if (lblEstadoDron == null) return;
+        if (dronId == null || manageDroneState == null) {
+            lblEstadoDron.setText("--");
+            return;
+        }
+        try {
+            lblEstadoDron.setText(manageDroneState.consultarEstado(dronId));
+        } catch (IllegalArgumentException | PersistenciaException e) {
+            lblEstadoDron.setText("--");
         }
     }
 

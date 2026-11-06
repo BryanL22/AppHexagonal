@@ -191,6 +191,32 @@
                    GridPane.rowIndex="6" GridPane.columnIndex="1" GridPane.columnSpan="2"/>
         </GridPane>
 
+        <!-- Seccion Estado del Dron (Patron State) -->
+        <Label text="Estado del Dron (State)" styleClass="subtitulo"/>
+
+        <GridPane hgap="8" vgap="8" alignment="CENTER_LEFT">
+            <columnConstraints>
+                <ColumnConstraints minWidth="130" prefWidth="140"/>
+                <ColumnConstraints minWidth="180" prefWidth="200"/>
+            </columnConstraints>
+
+            <Label text="Seleccionar dron:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cbDronEstado" promptText="Selecciona un dron" prefWidth="200"
+                      GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+            <Label text="Estado actual:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <Label fx:id="lblEstadoDron" text="--" styleClass="operacion-resultado"
+                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+        </GridPane>
+
+        <HBox spacing="8" alignment="CENTER_LEFT">
+            <Button text="Encender" onAction="#onEncender"/>
+            <Button text="Despegar" onAction="#onDespegar"/>
+            <Button text="Aterrizar" onAction="#onAterrizar"/>
+            <Button text="Finalizar aterrizaje" onAction="#onFinalizarAterrizaje"/>
+            <Button text="Apagar" onAction="#onApagar"/>
+        </HBox>
+
         </VBox>
     </ScrollPane>
 
