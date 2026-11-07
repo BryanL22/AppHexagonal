@@ -1,9 +1,13 @@
 # Gestión de Drones — Arquitectura Hexagonal
 
-Aplicación de escritorio en JavaFX para registrar, consultar, actualizar y
-eliminar drones sobre una base de datos MySQL. Proyecto académico de
-**Ingeniería de Software II** (Politécnico Grancolombiano), construido con
-**arquitectura hexagonal** (puertos y adaptadores).
+Aplicación de escritorio en JavaFX para gestionar drones sobre una base de
+datos MySQL. Proyecto académico de **Ingeniería de Software II** (Politécnico
+Grancolombiano), construido con **arquitectura hexagonal** (puertos y
+adaptadores).
+
+Además del CRUD de drones, la aplicación implementa siete patrones de diseño:
+**Singleton, Observer, Chain of Responsibility, Command, Strategy, State y
+Mediator** (ver [Patrones de diseño](#patrones-de-diseño)).
 
 Hay dos tipos de dron:
 
@@ -14,9 +18,9 @@ Hay dos tipos de dron:
 
 ## Arquitectura
 
-El núcleo de la aplicación no depende de la tecnología. La interfaz JavaFX y
-la base de datos MySQL se conectan al núcleo a través de **puertos**
-(interfaces) y se implementan como **adaptadores**.
+El núcleo de la aplicación no depende de la tecnología. La interfaz JavaFX, la
+base de datos MySQL y la API del clima se conectan al núcleo a través de
+**puertos** (interfaces) y se implementan como **adaptadores**.
 
 Recorrido de una operación, por ejemplo **Crear**:
 
@@ -49,42 +53,105 @@ aplicación y la aplicación conoce al dominio, nunca al revés.
 
 ### Paquetes (`co.edu.poli.sw2`)
 
-| Paquete                        | Contenido                                                                                           |
-|--------------------------------|-----------------------------------------------------------------------------------------------------|
-| `dominio.modelo`               | Entidades: `Drone`, `Agricultura`, `Vigilancia`, `Piloto`, `Sensor`, `Mision`. Solo usan `java.*`.   |
-| `dominio.weather`              | Modelo meteorologico: `Weather` y sujeto `WeatherObserver` (patron Observer).                       |
-| `dominio.weather.chain`        | Evaluacion meteorologica: `WeatherHandler`, `TemperatureHandler`, `HumidityHandler`, `WindHandler`, `PressureHandler`, `VisibilityHandler` y `ViabilityResult` (patron Chain of Responsibility). |
-| `aplicacion.puerto.entrada`    | Casos de uso: CRUD de drones, `GetWeatherByCityUseCase`, `GestionarSuscripcionesClimaUseCase` y `EvaluarViabilidadVueloUseCase`. |
-| `aplicacion.puerto.salida`     | Puertos: persistencia de drones, `ConsultarClimaPorCiudadPort`, `GeocodificarCiudadPort`, `WeatherQueryException` y `PersistenciaException`. |
-| `aplicacion.servicio`          | Servicios de aplicacion: CRUD de drones, `GetWeatherByCityService`, `WeatherNotificationService` y `EvaluarViabilidadVueloServicio`. |
-| `infraestructura.persistencia` | `MySqlDronRepository` (implementa los puertos de persistencia con SQL) y `ConexionBD` (Singleton JDBC). |
-| `infraestructura.weather`      | Adaptadores y clientes Open-Meteo (`GeoApiClient`, `GeoApiAdapter`, `OpenWeatherClient`, `OpenWeatherAdapter`), sin API key. |
-| `infraestructura.ui`           | `MainController`: adaptador de entrada JavaFX.                                                       |
-| `vista`                        | `App`: punto de entrada; crea y conecta todas las piezas.                                           |
+| Paquete                              | Contenido |
+|--------------------------------------|-----------|
+| `dominio.modelo`                     | Entidades: `Drone`, `Agricultura`, `Vigilancia`, `Piloto`, `Sensor`, `Mision`. Solo usan `java.*`. |
+| `dominio.weather`                    | Modelo meteorológico `Weather` y sujeto `WeatherObserver` (Observer). |
+| `dominio.weather.chain`              | `WeatherHandler` y sus eslabones `TemperatureHandler`, `HumidityHandler`, `WindHandler`, `PressureHandler`, `VisibilityHandler`, más `ViabilityResult` (Chain of Responsibility). |
+| `dominio.command`                    | `DroneCommand` y los comandos `TomarFotografiaCommand`, `EscanearZonaCommand`, `MedirTemperaturaCommand` (Command). |
+| `dominio.strategy`                   | `ConsumoStrategy` y las estrategias `AhorroStrategy`, `NormalStrategy`, `AltoRendimientoStrategy`, más `PuntoGeografico` (Strategy). |
+| `dominio.state`                      | `DroneContext` (Contexto), `DroneState` y los estados `OffState`, `ReadyState`, `FlyingState`, `LandingState` (State). |
+| `aplicacion.puerto.entrada`          | Casos de uso: CRUD de drones, `GetWeatherByCityUseCase`, `GestionarSuscripcionesClimaUseCase`, `EvaluarViabilidadVueloUseCase`, `ManageDroneStateUseCase` y `ExecuteMissionUseCase`. |
+| `aplicacion.puerto.salida`           | Puertos de persistencia de drones, `ConsultarClimaPorCiudadPort`, `GeocodificarCiudadPort`, `PersistenciaException` y `WeatherQueryException`. |
+| `aplicacion.servicio`                | Servicios: CRUD de drones, `GetWeatherByCityService`, `WeatherNotificationService`, `EvaluarViabilidadVueloServicio`, `DroneOperacionService` y `ProgramadorTareas` (Command), `DroneStateService` (State) y `MissionService` (Mediator). |
+| `aplicacion.usecase`                 | `CalcularConsumoUseCase`: Contexto del patrón Strategy. |
+| `aplicacion.mediator`                | `DroneMediator` (Mediator) y `MissionCoordinator` (torre de control). |
+| `aplicacion.mediator.components`     | `NavigationSystem`, `SensorSystem`, `BatterySystem`, `CommunicationSystem`. |
+| `infraestructura.persistencia`       | `MySqlDronRepository` (puertos de persistencia con SQL) y `ConexionBD` (Singleton JDBC). |
+| `infraestructura.weather`            | Clientes y adaptadores de Open-Meteo: `GeoApiClient`, `GeoApiAdapter`, `OpenWeatherClient`, `OpenWeatherAdapter` (sin API key). |
+| `infraestructura.loader`             | `JsonRutaLoader`: lee una ruta (origen y destino) desde un archivo JSON. |
+| `infraestructura.util`               | `HaversineUtil`: distancia en kilómetros entre dos coordenadas. |
+| `infraestructura.ui`                 | `MainController`: adaptador de entrada JavaFX. |
+| `vista`                              | `App`: punto de entrada; crea y conecta todas las piezas. |
 
 La vista (`GestorDrones.fxml`) y la hoja de estilos están en
 `src/main/resources/co/edu/poli/sw2/`. El proyecto es modular: su
-`module-info.java` declara las dependencias de JavaFX, `java.sql` y `java.logging`.
+`module-info.java` declara las dependencias de JavaFX, `java.sql`,
+`java.net.http`, `java.logging` y Jackson.
 
 ### Decisiones de diseño
 
-- **Un puerto por operación.** Interfaces dedicadas para CRUD, consulta de clima, suscripciones y evaluacion de viabilidad.
-- **Un servicio por caso de uso.** Cada servicio recibe por constructor solo los colaboradores que necesita.
-- **Patrones de diseño utilizados:**
-  - **Singleton:** `ConexionBD` para una conexion compartida a MySQL.
-  - **Observer:** `WeatherObserver` notifica a los drones suscritos sobre actualizaciones meteorologicas.
-  - **Chain of Responsibility:** `WeatherHandler` evalua secuencialmente temperatura, humedad, viento, presion y visibilidad para determinar la viabilidad del vuelo.
-- **Servicio meteorologico externo:** Open-Meteo (geocodificacion y pronostico) sin requerimiento de API key.
-- **Cambiar de infraestructura solo toca `App`.** Adaptadores reemplazables sin afectar el dominio ni los casos de uso.
-- **`App` es la raíz de composición.** Es la única clase que hace `new` de las piezas del hexágono.
-- **La tecnología no cruza hacia el núcleo.** Los repositorios y adaptadores capturan excepciones tecnicas y las traducen a excepciones de puerto.
-- **Las reglas de negocio viven en el núcleo, no en la interfaz.** Validaciones de entidades en el dominio y reglas de vuelo en la cadena de responsabilidad.
+- **Un puerto por operación.** El CRUD usa cinco puertos de entrada y cinco de
+  salida; no se agrupan en una sola interfaz.
+- **Un servicio por caso de uso.** Cada servicio recibe por constructor solo
+  los colaboradores que necesita.
+- **`App` es la raíz de composición.** Es la única clase que hace `new` de las
+  piezas del hexágono. Cambiar de infraestructura solo toca `App`.
+- **La tecnología no cruza hacia el núcleo.** El repositorio y los adaptadores
+  traducen las excepciones técnicas (`SQLException`, `IOException`) a
+  excepciones de puerto.
+- **Las reglas de negocio viven en el núcleo, no en la interfaz.** El
+  controlador solo lee y escribe controles y dispara casos de uso.
+- **La entidad `Drone` no se modificó para los patrones.** Conserva solo sus
+  atributos originales; el estado (State) y la coordinación de misiones
+  (Mediator) viven fuera de ella.
+
+## Patrones de diseño
+
+| Patrón | Dónde | Qué resuelve |
+|--------|-------|--------------|
+| **Singleton** | `ConexionBD` | Una sola conexión compartida a MySQL. |
+| **Observer** | `WeatherObserver` (sujeto) y `Drone` (observador) | Al consultar el clima, los drones suscritos reciben la actualización. |
+| **Chain of Responsibility** | `WeatherHandler` y sus 5 eslabones | Evalúa temperatura, humedad, viento, presión y visibilidad en cadena; el primero que falla declara el vuelo no apto. |
+| **Command** | `DroneCommand`, 3 comandos, `ProgramadorTareas` (Invoker), `DroneOperacionService` (Receiver) | Encola operaciones del dron (fotografía, escaneo, temperatura) y las ejecuta juntas, con historial por dron. |
+| **Strategy** | `ConsumoStrategy`, 3 estrategias, `CalcularConsumoUseCase` (Contexto) | Calcula el consumo de una ruta con un factor intercambiable: ahorro ×0.5, normal ×1.0, alto rendimiento ×1.5. |
+| **State** | `DroneContext` (Contexto), `DroneState` y 4 estados | Controla el ciclo de vida del dron y rechaza las transiciones no permitidas. |
+| **Mediator** | `DroneMediator`, `MissionCoordinator` y 4 sistemas | Coordina una operación de vigilancia sin que los sistemas se comuniquen entre sí. |
+
+### State: ciclo de vida del dron
+
+```
+APAGADO ──encender──▶ EN ESPERA ──despegar──▶ VOLANDO
+   ▲                     │  ▲                    │
+   └──────apagar─────────┘  │                aterrizar
+                            │                    ▼
+                            └─finalizarAterrizaje─ ATERRIZANDO
+```
+
+`DroneContext` envuelve al `Drone`, guarda el estado actual y delega en él cada
+operación. Cualquier transición que no aparece en el diagrama lanza un error
+con el motivo (por ejemplo, "No se puede despegar en estado APAGADO.").
+
+El estado vive **solo en memoria**: `DroneStateService` recuerda el último
+estado de cada dron por su ID. Un dron que nunca se operó empieza en APAGADO,
+y al cerrar la aplicación todos vuelven a APAGADO (no hay columna de estado
+en MySQL).
+
+### Mediator: torre de control de la operación de vigilancia
+
+`MissionCoordinator` es la torre de control. Los cuatro sistemas solo conocen
+a la interfaz `DroneMediator`: cuando terminan su paso le avisan con
+`notificar(this, evento)` y la torre decide qué sigue.
+
+```
+iniciarMision ─▶ Navegación: prepara la ruta ── "RUTA_LISTA" ──▶ torre
+torre ─▶ Sensores: activa los sensores ── "SENSORES_ACTIVOS" ──▶ torre
+torre ─▶ Batería: verifica la energía ── "BATERIA_OK" / "BATERIA_BAJA" ──▶ torre
+torre ─▶ Comunicación: establece el enlace ── "ENLACE_LISTO" ──▶ torre
+torre ─▶ misión iniciada
+```
+
+Si la batería está por debajo del **30 %** (`BatterySystem.NIVEL_MINIMO`), la
+torre aborta la misión y no establece el enlace. Cada paso queda anotado en
+una bitácora que se muestra en pantalla. El Mediator está en la capa de
+aplicación y no usa las operaciones CRUD del dron.
 
 ## Requisitos
 
 - JDK 21
 - Maven 3.9 o superior
 - MySQL 8 en ejecución
+- Conexión a internet para la consulta del clima (Open-Meteo)
 
 ## Configuración
 
@@ -113,19 +180,44 @@ la primera vez que la aplicación se conecta.
 
 ```bash
 mvn javafx:run          # ejecuta la aplicación
-mvn test                # ejecuta las pruebas del dominio
+mvn test                # ejecuta las pruebas unitarias
 mvn javadoc:javadoc     # genera la documentación en target/site/apidocs/index.html
 ```
 
-En la ventana:
+La ventana tiene el formulario y las secciones de cada patrón a la izquierda,
+y la tabla de drones a la derecha. Al hacer clic en una fila de la tabla, sus
+datos pasan al formulario y el dron queda seleccionado en todas las secciones.
 
-1. Completa ID, serial, modelo, fabricante y peso, y elige el tipo. Aparece el
-   campo propio del tipo elegido.
-2. **Crear** registra el dron. **Actualizar** guarda los cambios del dron con
-   ese ID.
-3. **Consultar por ID** y **Eliminar** solo necesitan el ID.
-4. **Consultar todos** recarga la tabla. Al hacer clic en una fila, sus datos
-   pasan al formulario.
+1. **Gestor de Drones (CRUD).** Completa ID, serial, modelo, fabricante y
+   peso, y elige el tipo; aparece el campo propio del tipo. **Crear**,
+   **Actualizar**, **Consultar por ID**, **Consultar todos** y **Eliminar**.
+2. **Monitoreo Meteorológico y Viabilidad (Observer + Chain).** Escribe una
+   ciudad y pulsa **Consultar clima**: se muestran temperatura, humedad,
+   viento, presión y visibilidad, y la cadena indica si el vuelo es apto.
+   **Suscribir** / **Desuscribir** agregan o quitan drones de las
+   notificaciones del clima.
+3. **Operaciones del Dron (Command).** Elige un dron, marca las operaciones
+   (Tomar Fotografía, Escanear Zona, Medir Temperatura) y pulsa **Confirmar y
+   Ejecutar Comandos**. Debajo aparece el historial del dron.
+4. **Consumo Energético de Ruta (Strategy).** Elige un dron, carga una ruta
+   JSON (hay un ejemplo en `ruta_ejemplo.json`), elige la estrategia y pulsa
+   **Calcular**. Se muestran la distancia (fórmula de Haversine) y el consumo.
+5. **Estado del Dron (State).** Elige un dron y usa **Encender**,
+   **Despegar**, **Aterrizar**, **Finalizar aterrizaje** y **Apagar**. Si la
+   transición no está permitida, aparece una alerta y el estado no cambia.
+6. **Operación de Vigilancia (Mediator).** Elige un dron, escribe el
+   porcentaje de batería (0 a 100) y pulsa **Iniciar misión**. La bitácora
+   muestra cada paso de la torre de control y **Resultado** indica si la
+   misión se inició o se abortó (con menos de 30 %).
+
+Formato de la ruta JSON:
+
+```json
+{
+  "origen":  { "nombre": "Punto Origen",  "latitud": 4.60971, "longitud": -74.08175 },
+  "destino": { "nombre": "Punto Destino", "latitud": 4.70159, "longitud": -74.14690 }
+}
+```
 
 ## Base de datos
 
@@ -142,10 +234,22 @@ En la ventana:
 Cada especialización de dron tiene su propia tabla (herencia por tabla). Al
 eliminar un dron se borran en cascada sus filas relacionadas.
 
-Por ahora solo los drones tienen operaciones en la aplicación. Las tablas de
-pilotos, sensores y misiones se crean, pero todavía no tienen CRUD.
+Solo los drones tienen operaciones CRUD en la aplicación. Las tablas de
+pilotos, sensores y misiones se crean, pero todavía no tienen CRUD. Ni el
+estado del dron (State) ni las operaciones de vigilancia (Mediator) se guardan
+en la base de datos.
 
 ## Pruebas
 
-Las pruebas unitarias (JUnit 5) están en `src/test/java/co/edu/poli/sw2/tests/unitaria`
-y cubren las entidades del dominio. No necesitan base de datos.
+Las pruebas unitarias (JUnit 5) están en
+`src/test/java/co/edu/poli/sw2/tests/unitaria`: 85 pruebas en 23 clases. No
+necesitan base de datos ni internet (el clima se prueba con dobles).
+
+| Área | Clases de prueba |
+|------|------------------|
+| Dominio | `DroneTest`, `AgriculturaTest`, `VigilanciaTest`, `PilotoTest`, `SensorTest`, `MisionTest` |
+| Observer y clima | `WeatherObserverTest`, `GetWeatherByCityServiceTest`, `OpenWeatherAdapterTest` |
+| Chain of Responsibility | `TemperatureHandlerTest`, `HumidityHandlerTest`, `WindHandlerTest`, `PressureHandlerTest`, `VisibilityHandlerTest`, `WeatherChainTest`, `EvaluarViabilidadVueloServicioTest` |
+| Strategy | `ConsumoStrategyTest`, `CalcularConsumoUseCaseTest`, `JsonRutaLoaderTest`, `HaversineUtilTest` |
+| State | `DroneStateTest`, `DroneStateServiceTest` |
+| Mediator | `MissionMediatorTest` |
