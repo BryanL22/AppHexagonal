@@ -18,6 +18,13 @@
         <mysql.connector.version>8.3.0</mysql.connector.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <junit.platform.version>1.10.2</junit.platform.version>
+        <jacoco.version>0.8.16</jacoco.version>
+
+        <!-- SonarQube: servidor local; el token se pasa con la variable SONAR_TOKEN -->
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <sonar.projectKey>app-hexagonal</sonar.projectKey>
+        <sonar.projectName>Gestion de Drones - Arquitectura Hexagonal</sonar.projectName>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 
     <dependencies>
@@ -89,6 +96,35 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
+            </plugin>
+
+            <!-- Cobertura de las pruebas para SonarQube: el reporte queda en target/site/jacoco -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>preparar-agente</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>reporte</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Analisis de calidad con: mvn clean verify sonar:sonar -->
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>5.8.0.7211</version>
             </plugin>
 
             <!-- Documentacion HTML con: mvn javadoc:javadoc (queda en target/site/apidocs) -->

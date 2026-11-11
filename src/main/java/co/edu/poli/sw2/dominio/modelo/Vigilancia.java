@@ -50,18 +50,6 @@ public class Vigilancia extends Drone {
     }
 
     /**
-     * Crea una copia de este dron de vigilancia, incluyendo
-     * si tiene deteccion termica. El objeto devuelto tiene una identidad
-     * (referencia de memoria) distinta a la de {@code this}.
-     *
-     * @return una copia independiente de este dron de vigilancia.
-     */
-    @Override
-    public Vigilancia clone() {
-        return (Vigilancia) super.clone();
-    }
-
-    /**
      * Devuelve una representacion en texto con todos los datos, util para depuracion.
      *
      * @return los atributos de este objeto en formato legible.

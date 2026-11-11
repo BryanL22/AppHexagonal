@@ -219,6 +219,30 @@ Formato de la ruta JSON:
 }
 ```
 
+## Análisis de calidad (SonarQube)
+
+El proyecto se analiza con un servidor local de **SonarQube Community Build**.
+El `pom.xml` ya trae el plugin de Sonar y **JaCoCo**, que mide la cobertura de
+las pruebas (el reporte queda en `target/site/jacoco/index.html`).
+
+1. Arranca el servidor (requiere Java 21) y espera a que diga *SonarQube is
+   operational*:
+   ```powershell
+   & "$env:USERPROFILE\sonarqube\sonarqube-26.11.0.134175\bin\windows-x86-64\StartSonar.bat"
+   ```
+2. Entra a <http://localhost:9000> con `admin` / `admin` y cambia la
+   contraseña cuando lo pida.
+3. Crea un token: *My Account → Security → Generate Tokens* (tipo *Global
+   Analysis Token*).
+4. Analiza el proyecto con el token en la variable `SONAR_TOKEN`:
+   ```powershell
+   $env:SONAR_TOKEN = "el_token_generado"
+   mvn clean verify sonar:sonar
+   ```
+5. El resultado aparece en <http://localhost:9000/dashboard?id=app-hexagonal>.
+
+El token es personal: no se escribe en el `pom.xml` ni se sube al repositorio.
+
 ## Base de datos
 
 | Tabla          | Descripción                                                                  |

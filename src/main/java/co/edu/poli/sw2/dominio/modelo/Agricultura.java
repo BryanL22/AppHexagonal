@@ -64,18 +64,6 @@ public class Agricultura extends Drone {
     }
 
     /**
-     * Crea una copia de este dron de agricultura, incluyendo
-     * su capacidad de tanque. El objeto devuelto tiene una identidad (referencia
-     * de memoria) distinta a la de {@code this}.
-     *
-     * @return una copia independiente de este dron de agricultura.
-     */
-    @Override
-    public Agricultura clone() {
-        return (Agricultura) super.clone();
-    }
-
-    /**
      * Devuelve una representacion en texto con todos los datos, util para depuracion.
      *
      * @return los atributos de este objeto en formato legible.

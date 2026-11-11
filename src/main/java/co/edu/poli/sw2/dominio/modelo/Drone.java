@@ -12,13 +12,10 @@ import java.util.List;
  * <p>Es la superclase de los tipos especializados de dron
  * ({@link co.edu.poli.sw2.dominio.modelo.Agricultura} y {@link co.edu.poli.sw2.dominio.modelo.Vigilancia}).</p>
  *
- * <p>Implementa {@link Cloneable} para poder obtener una copia independiente
- * de un dron (ver {@link #clone()}) sin conocer su tipo concreto.</p>
- *
  * <p>Pertenece al dominio: solo depende de {@code java.util}, sin JavaFX,
  * JDBC ni ninguna otra tecnologia.</p>
  */
-public class Drone implements Cloneable {
+public class Drone {
 
     /** Identificador unico, asignado manualmente por el usuario. */
     private String id;
@@ -227,25 +224,6 @@ public class Drone implements Cloneable {
     private static void exigirTexto(String valor, String campo) {
         if (valor == null || valor.isBlank()) {
             throw new IllegalArgumentException(campo + " es obligatorio.");
-        }
-    }
-
-    /**
-     * Crea una copia de este dron. Los campos simples se
-     * copian por valor y la lista de sensores se duplica para que el clon no
-     * comparta su lista mutable con el original; el objeto devuelto tiene una
-     * identidad (referencia de memoria) distinta a la de {@code this}.
-     *
-     * @return una copia independiente de este dron.
-     */
-    @Override
-    public Drone clone() {
-        try {
-            Drone copia = (Drone) super.clone();
-            copia.sensores = new ArrayList<>(this.sensores);
-            return copia;
-        } catch (CloneNotSupportedException e) {
-            throw new AssertionError("Drone implementa Cloneable: no deberia fallar.", e);
         }
     }
 

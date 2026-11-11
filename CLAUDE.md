@@ -99,7 +99,11 @@ mvn javafx:run     # arranca la aplicación (requiere MySQL en marcha)
 mvn test           # tests del dominio
 mvn compile
 mvn javadoc:javadoc  # HTML en target/site/apidocs; doclint "all" falla si falta Javadoc
+mvn clean verify sonar:sonar  # SonarQube local (localhost:9000); token en SONAR_TOKEN
 ```
+
+JaCoCo genera la cobertura en `target/site/jacoco/` durante `verify`; Sonar la
+lee de ahí. El servidor está fuera del repo, en `%USERPROFILE%\sonarqube`.
 
 Antes de la primera ejecución: copiar `.env.example` como `.env` y completar
 las credenciales de MySQL. El `.env` está en `.gitignore`.
